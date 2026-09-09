@@ -78,18 +78,36 @@ function initClock() {
 
   function updateClock() {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const date = String(now.getDate()).padStart(2, "0");
-    const day = weekdays[now.getDay()];
 
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    const seconds = String(now.getSeconds()).padStart(2, "0");
+    // 端末のタイムゾーンや12時間表記設定に左右されず、常に正確な日本時間(JST)の24時間表記を取得
+    const jstDateStr = now.toLocaleDateString("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      weekday: "short"
+    });
+    const jstTimeStr = now.toLocaleTimeString("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      hour12: false,
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
+    });
 
-    if (dateEl) dateEl.textContent = `${year}年${month}月${date}日 (${day})`;
-    if (timeEl && secondsEl) {
+    const parts = jstTimeStr.split(":");
+    const hours = parts[0] === "24" ? "00" : parts[0];
+    const minutes = parts[1] || "00";
+    const seconds = parts[2] || "00";
+
+    if (dateEl) dateEl.textContent = jstDateStr;
+    const hmEl = document.getElementById("hours-minutes-display");
+    if (hmEl) {
+      hmEl.textContent = `${hours}:${minutes}`;
+    } else if (timeEl && timeEl.childNodes[0]) {
       timeEl.childNodes[0].nodeValue = `${hours}:${minutes}`;
+    }
+    if (secondsEl) {
       secondsEl.textContent = `:${seconds}`;
     }
   }
@@ -613,47 +631,58 @@ function initEmbeds() {
    ユーザーの好みに合わせた動画を3分ごとに自動切り替え
    ========================================================= */
 // ジャンル別おすすめ動画プール (テレビニュース・ウェザーニュース・アキバ・テック・チル)
+// ジャンル別おすすめ動画プール (有効確認済み・高画質安定配信)
 const YT_GENRE_POOLS = {
   all_mix: {
     label: "総合ミックス",
-    // ニュースライブ、ウェザーニュース、アキバガジェット、最新テックを順次3分ローテ
+    // ニュースライブ、ウェザーニュース、4K映像、Lo-Fiを順次3分ローテ
     videos: [
-      "DWcJFNfaw9c", // ウェザーニュース / 環境
-      "jfKfPfyJRdk", // ニュース・BGM
-      "bA9k4Pq2k8g", // アキバ自作PC・パーツ巡り
-      "5qap5aO4i9A", // TBS NEWS DIG / ANN 24h
-      "MCkZ3_f9c_U"  // 最新ガジェット・テック
+      "WO-T3EPxTwQ", // ウェザーニュースLiVE (24h生放送)
+      "coYw-eVU0Ks", // テレ朝NEWS24 (24h最新ニュース)
+      "CmQi-BxdnSA", // TBS NEWS DIG (24h最新ニュース)
+      "jfKfPfyJRdk", // Lofi Girl (Study beats)
+      "rUxyKA_-grg"  // Lofi Girl (Chill beats)
     ]
   },
   news_weather: {
     label: "テレビニュース & 天気Live",
-    // ウェザーニュースLiVE + 24hテレビニュース (TBS NEWS DIG, ANN, 日テレ)
     videos: [
-      "DWcJFNfaw9c", // ウェザーニュースLiVE
-      "5qap5aO4i9A", // TBS NEWS DIG 24h
-      "jfKfPfyJRdk", // ANN News 24h
-      "MCkZ3_f9c_U"  // 日テレNEWS 24h
+      "WO-T3EPxTwQ", // ウェザーニュースLiVE
+      "coYw-eVU0Ks", // テレ朝NEWS24
+      "CmQi-BxdnSA"  // TBS NEWS DIG 24h
     ]
   },
   akiba_gadget: {
-    label: "アキバ・自作PC",
-    // 秋葉原ショップ巡り・自作PC・ガジェット人気動画
-    videos: ["bA9k4Pq2k8g", "dGzF_pS1Q5s", "jfKfPfyJRdk", "DWcJFNfaw9c"]
+    label: "アキバ・最新テック",
+    videos: [
+      "1La4QzGeaaQ", // 4K 超高画質映像ツアー
+      "coYw-eVU0Ks", // ニュースライブ
+      "jfKfPfyJRdk", // 作業用Lo-Fi
+      "WO-T3EPxTwQ"  // ウェザーニュース
+    ]
   },
   latest_tech: {
-    label: "最新テック・AI",
-    // 最新ガジェット・AI・未来技術
-    videos: ["MCkZ3_f9c_U", "jfKfPfyJRdk", "5qap5aO4i9A"]
+    label: "最新テック・ニュース",
+    videos: [
+      "coYw-eVU0Ks", // テレ朝NEWS24
+      "CmQi-BxdnSA", // TBS NEWS DIG
+      "1La4QzGeaaQ"  // 4K映像
+    ]
   },
   desk_setup: {
-    label: "デスク環境",
-    // デスクツアー・スマートホーム
-    videos: ["DWcJFNfaw9c", "jfKfPfyJRdk"]
+    label: "作業用環境・Lo-Fi",
+    videos: [
+      "jfKfPfyJRdk",
+      "rUxyKA_-grg",
+      "WO-T3EPxTwQ"
+    ]
   },
   lofi_relax: {
     label: "作業用Lo-Fi",
-    // 定番Lo-Fi Hip Hop・カフェチル
-    videos: ["jfKfPfyJRdk", "5qap5aO4i9A", "DWcJFNfaw9c"]
+    videos: [
+      "jfKfPfyJRdk",
+      "rUxyKA_-grg"
+    ]
   }
 };
 
@@ -662,14 +691,15 @@ let ytCurrentPool = [];
 let ytCurrentIndex = 0;
 let ytTimerInterval = null;
 let ytRemainingSeconds = 180; // 3分 (180秒)
+let ytConsecutiveErrors = 0; // 連続エラー回数カウンタ
 
 // 現在のアクティブ動画プールを取得
 function getYtActivePool() {
   if (CONFIG.youtube.customVideoIds && CONFIG.youtube.customVideoIds.length > 0) {
     return CONFIG.youtube.customVideoIds;
   }
-  const genre = CONFIG.youtube.genre || "akiba_gadget";
-  const poolObj = YT_GENRE_POOLS[genre] || YT_GENRE_POOLS.akiba_gadget;
+  const genre = CONFIG.youtube.genre || "all_mix";
+  const poolObj = YT_GENRE_POOLS[genre] || YT_GENRE_POOLS.all_mix;
   return poolObj.videos;
 }
 
@@ -679,8 +709,8 @@ function updateYtGenreBadge() {
   if (CONFIG.youtube.customVideoIds && CONFIG.youtube.customVideoIds.length > 0) {
     badge.textContent = "カスタムリスト";
   } else {
-    const genre = CONFIG.youtube.genre || "akiba_gadget";
-    const poolObj = YT_GENRE_POOLS[genre] || YT_GENRE_POOLS.akiba_gadget;
+    const genre = CONFIG.youtube.genre || "all_mix";
+    const poolObj = YT_GENRE_POOLS[genre] || YT_GENRE_POOLS.all_mix;
     badge.textContent = poolObj.label;
   }
 }
@@ -695,7 +725,7 @@ function startYtRotationTimer() {
 
   function tick() {
     ytRemainingSeconds--;
-    
+
     // 分:秒 表記
     const m = Math.floor(ytRemainingSeconds / 60);
     const s = String(ytRemainingSeconds % 60).padStart(2, "0");
@@ -726,13 +756,17 @@ function playNextVideo() {
   console.log(`YouTube 3分経過: 次の動画 [${nextVideoId}] へ切り替えます`);
 
   if (ytPlayer && ytPlayer.loadVideoById) {
-    ytPlayer.loadVideoById({
-      videoId: nextVideoId,
-      startSeconds: 0
-    });
-    ytPlayer.mute(); // 自動再生ポリシー対策
-    if (CONFIG.youtube.autoplay) {
-      ytPlayer.playVideo();
+    try {
+      ytPlayer.loadVideoById({
+        videoId: nextVideoId,
+        startSeconds: 0
+      });
+      ytPlayer.mute(); // 自動再生ポリシー対策
+      if (CONFIG.youtube.autoplay) {
+        ytPlayer.playVideo();
+      }
+    } catch (err) {
+      console.warn("YouTube 動画切り替え例外:", err);
     }
   }
 
@@ -746,33 +780,63 @@ window.onYouTubeIframeAPIReady = function() {
   const initialVideoId = ytCurrentPool[0] || "jfKfPfyJRdk";
   updateYtGenreBadge();
 
+  const playerVars = {
+    autoplay: CONFIG.youtube.autoplay ? 1 : 0,
+    mute: CONFIG.youtube.mute ? 1 : 0,
+    playsinline: 1, // iOS Safariで全画面にならずインライン再生
+    controls: 1,
+    rel: 0,
+    modestbranding: 1,
+    enablejsapi: 1
+  };
+
+  // オリジン設定 (iOS SafariおよびGitHub Pagesでの埋め込み拒否防止)
+  if (window.location.origin && window.location.origin !== "null" && !window.location.origin.startsWith("file:")) {
+    playerVars.origin = window.location.origin;
+  }
+
   ytPlayer = new YT.Player("youtube-player", {
     videoId: initialVideoId,
-    playerVars: {
-      autoplay: CONFIG.youtube.autoplay,
-      mute: CONFIG.youtube.mute,
-      playsinline: 1, // iOS Safariで全画面にならずインライン再生
-      controls: 1,
-      rel: 0,
-      modestbranding: 1
-    },
+    playerVars: playerVars,
     events: {
       onReady: (event) => {
+        ytConsecutiveErrors = 0;
         event.target.mute();
         if (CONFIG.youtube.autoplay) {
-          event.target.playVideo();
+          try {
+            event.target.playVideo();
+          } catch (e) {
+            console.warn("YouTube 自動再生待機:", e);
+          }
         }
         startYtRotationTimer();
       },
       onStateChange: (event) => {
+        if (event.data === YT.PlayerState.PLAYING) {
+          ytConsecutiveErrors = 0;
+        }
         // 動画自体が3分未満で終了した場合も待たずに次へ
         if (event.data === YT.PlayerState.ENDED) {
           playNextVideo();
         }
       },
       onError: (e) => {
-        console.warn("YouTube Player エラー、次の動画へスキップします:", e);
-        setTimeout(playNextVideo, 2000);
+        ytConsecutiveErrors++;
+        console.warn(`YouTube Player エラー (code ${e.data || e}), 連続エラー: ${ytConsecutiveErrors}`);
+
+        // プール全件が連続エラーになった場合は無限ループを停止して待機
+        if (ytConsecutiveErrors >= ytCurrentPool.length) {
+          console.warn("YouTube: 現在再生可能な動画がありません。無限スキップを停止します。");
+          if (ytTimerInterval) clearInterval(ytTimerInterval);
+          const timerText = document.getElementById("yt-timer-text");
+          if (timerText) timerText.textContent = "待機中";
+          return;
+        }
+
+        // 次の動画を4秒後に試行（高速な繰り返しエラーの防止）
+        setTimeout(() => {
+          playNextVideo();
+        }, 4000);
       }
     }
   });
@@ -781,6 +845,7 @@ window.onYouTubeIframeAPIReady = function() {
   const btnSkip = document.getElementById("btn-yt-skip");
   if (btnSkip) {
     btnSkip.addEventListener("click", () => {
+      ytConsecutiveErrors = 0;
       playNextVideo();
     });
   }

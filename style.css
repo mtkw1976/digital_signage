@@ -156,29 +156,33 @@ html, body {
 }
 
 .date-display {
-  font-size: clamp(1.3rem, 2.8vw, 1.85rem);
+  font-size: clamp(0.95rem, 1.8vw, 1.35rem);
   font-weight: 600;
   color: var(--text-secondary);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .time-display {
   font-family: 'JetBrains Mono', monospace;
-  font-size: clamp(5.4rem, 12.5vw, 8.8rem);
+  font-size: clamp(2.8rem, 5.8vw, 4.2rem);
   font-weight: 900;
   color: var(--text-primary);
-  line-height: 0.88;
-  letter-spacing: -0.04em;
-  text-shadow: 0 0 40px rgba(56, 189, 248, 0.4);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 32px rgba(56, 189, 248, 0.4);
   display: flex;
   align-items: baseline;
+  justify-content: center;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .seconds-display {
-  font-size: 0.36em;
+  font-size: 0.38em;
   color: var(--accent-cyan);
-  margin-left: 6px;
+  margin-left: 4px;
   font-weight: 700;
   letter-spacing: 0;
 }
