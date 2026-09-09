@@ -152,7 +152,10 @@
     <!-- タイル3: Googleカレンダー -->
     <section class="tile tile-calendar" id="tile-calendar">
       <div class="tile-header">
-        <span class="tile-title">スケジュール (カレンダー)</span>
+        <div class="calendar-header-left">
+          <span class="tile-title">スケジュール (カレンダー)</span>
+        </div>
+        <a href="https://calendar.google.com" target="_blank" rel="noopener noreferrer" class="calendar-external-btn" id="btn-calendar-external" title="Googleカレンダーを直接開く">カレンダーを開く ↗</a>
       </div>
       <div class="calendar-body">
         <!-- Googleカレンダーの埋め込みiframeまたはAPI連携用領域 -->
@@ -161,7 +164,8 @@
           src="about:blank" 
           class="embedded-iframe" 
           frameborder="0" 
-          scrolling="no">
+          scrolling="no"
+          allow="storage-access *">
         </iframe>
         <div class="placeholder-overlay" id="calendar-placeholder">
           <div class="placeholder-content">
@@ -180,8 +184,11 @@
       </div>
       <div class="map-split-container">
         <!-- 上段: 妻の位置情報 -->
-        <div class="map-split-item">
-          <div class="map-person-badge">👩 妻</div>
+        <div class="map-split-item" id="map-split-item-wife">
+          <div class="map-item-header">
+            <div class="map-person-badge">👩 妻</div>
+            <a href="#" target="_blank" rel="noopener noreferrer" class="map-open-link" id="map-open-link-wife" style="display: none;">Googleマップで開く ↗</a>
+          </div>
           <iframe 
             id="map-iframe-wife" 
             src="about:blank" 
@@ -189,6 +196,21 @@
             frameborder="0" 
             allowfullscreen>
           </iframe>
+          <!-- リアルタイム共有リンク用カード (Googleによるiframeブロック時の安全表示) -->
+          <div class="map-live-card hidden" id="map-live-card-wife">
+            <div class="map-live-info">
+              <div class="map-live-status">
+                <span class="live-pulse-dot"></span>
+                <span>リアルタイム位置情報 連携中</span>
+              </div>
+              <a href="#" target="_blank" rel="noopener noreferrer" class="btn-map-launch">
+                🗺️ 👩 妻の現在地をGoogleマップで確認 ↗
+              </a>
+              <div class="map-live-note">
+                タップするとGoogleマップアプリまたはSafariでリアルタイム位置を確認できます
+              </div>
+            </div>
+          </div>
           <div class="placeholder-overlay" id="map-placeholder-wife">
             <div class="placeholder-content">
               <span class="placeholder-icon">📍</span>
@@ -199,8 +221,11 @@
         </div>
 
         <!-- 下段: 娘の位置情報 -->
-        <div class="map-split-item">
-          <div class="map-person-badge">👧 娘</div>
+        <div class="map-split-item" id="map-split-item-daughter">
+          <div class="map-item-header">
+            <div class="map-person-badge">👧 娘</div>
+            <a href="#" target="_blank" rel="noopener noreferrer" class="map-open-link" id="map-open-link-daughter" style="display: none;">Googleマップで開く ↗</a>
+          </div>
           <iframe 
             id="map-iframe-daughter" 
             src="about:blank" 
@@ -208,6 +233,21 @@
             frameborder="0" 
             allowfullscreen>
           </iframe>
+          <!-- リアルタイム共有リンク用カード (Googleによるiframeブロック時の安全表示) -->
+          <div class="map-live-card hidden" id="map-live-card-daughter">
+            <div class="map-live-info">
+              <div class="map-live-status">
+                <span class="live-pulse-dot"></span>
+                <span>リアルタイム位置情報 連携中</span>
+              </div>
+              <a href="#" target="_blank" rel="noopener noreferrer" class="btn-map-launch">
+                🗺️ 👧 娘の現在地をGoogleマップで確認 ↗
+              </a>
+              <div class="map-live-note">
+                タップするとGoogleマップアプリまたはSafariでリアルタイム位置を確認できます
+              </div>
+            </div>
+          </div>
           <div class="placeholder-overlay" id="map-placeholder-daughter">
             <div class="placeholder-content">
               <span class="placeholder-icon">📍</span>
@@ -225,8 +265,10 @@
         <div class="yt-header-left">
           <span class="tile-title">YouTube</span>
           <span class="yt-genre-badge" id="yt-genre-badge">アキバ・ガジェット</span>
+          <span class="yt-account-badge" id="yt-account-badge" style="display: none;">💎 Premium</span>
         </div>
         <div class="yt-header-controls">
+          <a href="https://accounts.google.com/ServiceLogin?service=youtube&continue=https%3A%2F%2Fwww.youtube.com" target="_blank" rel="noopener noreferrer" class="yt-login-btn" id="btn-yt-login" title="YouTube Premiumアカウントでログイン">ログイン ↗</a>
           <div class="yt-timer-wrap" title="3分で次の動画に切り替わります">
             <span class="yt-timer-icon">⏱</span>
             <span class="yt-timer-text" id="yt-timer-text">3:00</span>
@@ -313,26 +355,52 @@
           <label for="cfg-calendar-url">Googleカレンダー 埋め込みURL</label>
           <input type="text" id="cfg-calendar-url" placeholder="https://calendar.google.com/calendar/embed?src=...">
           <small>カレンダー設定の「このカレンダーの統合」にある埋め込みコード（src="..."のURL）</small>
+          <div class="calendar-safari-note">
+            <p><strong>💡「Cookieにアクセスするのを許可してください」と表示される場合:</strong></p>
+            <ol>
+              <li>iPad本体の<strong>【設定】&gt;【Safari】&gt;【「サイト越えトラッキングを防ぐ」】を OFF</strong> にしてください（SafariのCookieブロックが解除され、カレンダーが表示されます）。</li>
+              <li>Safariで一度 <a href="https://calendar.google.com" target="_blank" rel="noopener noreferrer" style="color: var(--accent-cyan); text-decoration: underline;">Googleカレンダー ↗</a> にアクセスし、ログインしていることを確認してください。</li>
+            </ol>
+            <small>※この設定をOFFにすると、YouTube PremiumのCM非表示も同時に有効になります。</small>
+          </div>
         </div>
 
         <div class="form-group">
-          <label for="cfg-map-wife-url">Googleマップ (妻の位置情報) 埋め込みURL</label>
-          <input type="text" id="cfg-map-wife-url" placeholder="https://maps.google.com/... (妻の位置情報共有URL)">
-          <small>Googleマップの現在地共有リンクまたはiframe用埋め込みURL</small>
+          <label for="cfg-map-wife-url">Googleマップ (妻の位置情報) URL</label>
+          <input type="text" id="cfg-map-wife-url" placeholder="https://maps.app.goo.gl/... または住所・座標">
+          <small>Googleマップ「現在地共有」リンク、住所（例: 品川区大崎）、または埋め込みURL</small>
         </div>
 
         <div class="form-group">
-          <label for="cfg-map-daughter-url">Googleマップ (娘の位置情報) 埋め込みURL</label>
-          <input type="text" id="cfg-map-daughter-url" placeholder="https://maps.google.com/... (娘の位置情報共有URL)">
-          <small>Googleマップの現在地共有リンクまたはiframe用埋め込みURL</small>
+          <label for="cfg-map-daughter-url">Googleマップ (娘の位置情報) URL</label>
+          <input type="text" id="cfg-map-daughter-url" placeholder="https://maps.app.goo.gl/... または住所・座標">
+          <small>Googleマップ「現在地共有」リンク、住所（例: 品川区大崎）、または埋め込みURL</small>
+          <div class="map-safari-note">
+            <p><strong>💡 家族の位置情報設定のポイント:</strong></p>
+            <ul>
+              <li><strong>現在地共有リンク (maps.app.goo.gl):</strong> Googleのセキュリティによりiframe内には直接描画されませんが、サイネージ上に「Googleマップで現在地を確認」ボタンが常時表示され、1タップでリアルタイム位置を確認できます。</li>
+              <li><strong>住所や座標（例: 品川区大崎 / 35.6197, 139.7285）:</strong> タイル内に直接インタラクティブな地図が埋め込み表示されます。</li>
+            </ul>
+          </div>
         </div>
 
         <div class="form-group form-checkbox-group">
           <label class="checkbox-label" for="cfg-youtube-premium">
             <input type="checkbox" id="cfg-youtube-premium">
-            <span>💎 YouTube Premium契約 (広告非表示・最適化モード)</span>
+            <span>💎 YouTube Premium契約 (広告・CM完全排除モード)</span>
           </label>
-          <small>※有効にすると広告非表示パラメータを適用します。iPad Safariでyoutube.comにログイン済みの場合、iframe埋め込みでも広告が排除されます。</small>
+          <div style="margin-top: 8px;">
+            <label for="cfg-google-account" style="font-size: 0.78rem; color: var(--text-secondary); font-weight: 600;">YouTube Premium Googleアカウント (任意):</label>
+            <input type="email" id="cfg-google-account" placeholder="your_premium_account@gmail.com" style="margin-top: 3px;">
+          </div>
+          <div class="premium-safari-note">
+            <p><strong>💡 iPadでCMを完全に非表示にするための設定手順:</strong></p>
+            <ol>
+              <li>下のボタンからSafariでYouTubeを開き、Premiumアカウントでログインしてください。</li>
+              <li>iPad本体の<strong>【設定】&gt;【Safari】&gt;【「サイト越えトラッキングを防ぐ」】を OFF</strong> にしてください（Safariの仕様上、これをOFFにすることで埋め込みプレーヤーにPremium認証Cookieが共有され、CMが完全に消滅します）。</li>
+            </ol>
+            <a href="https://accounts.google.com/ServiceLogin?service=youtube&continue=https%3A%2F%2Fwww.youtube.com" target="_blank" rel="noopener noreferrer" class="btn-yt-safari-login">🔑 SafariでYouTubeにログインする ↗</a>
+          </div>
         </div>
 
         <div class="form-group">

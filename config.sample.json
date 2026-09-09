@@ -2,14 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Smart Digital Signage Configuration",
   "description": "iPadスマートサイネージ用設定ファイル。PCでこのファイルを編集後、iPadの設定画面(⚙️)から「設定JSONファイルを読み込む」で読み込むことができます。",
-  "_comment_calendar": "Googleカレンダーの埋め込みURL。Googleカレンダー設定 > 「このカレンダーの統合」にある埋め込みコード内の src=... のURLを貼り付けてください。",
+  "_comment_calendar": "Googleカレンダーの埋め込みURL。Googleカレンダー設定 >「マイカレンダーの設定」>「カレンダーの統合」にある埋め込みコード（src=...のURL）を貼り付けてください。※iPadで「Cookieへのアクセス許可」と表示される場合は、iPad本体の【設定】>【Safari】>【「サイト越えトラッキングを防ぐ」】をOFFにすると解決します（YouTube PremiumのCM非表示も同時に有効化されます）。",
   "calendar": {
     "embedUrl": "https://calendar.google.com/calendar/embed?src=YOUR_CALENDAR_ID%40group.calendar.google.com&ctz=Asia%2FTokyo"
   },
-  "_comment_map": "Googleマップの位置情報共有URL。奥様とお嬢様の位置情報URL（または現在地URL）を設定すると上下2分割でリアルタイム表示されます。",
+  "_comment_map": "Googleマップの位置情報。奥様とお嬢様の「現在地共有リンク」(https://maps.app.goo.gl/...)、住所(例: 品川区大崎)、座標、または埋め込みURLを設定できます。現在地共有リンクを設定すると、サイネージ上に「現在地を開く」ボタンが常時表示され、1タップでGoogleマップでリアルタイム位置を確認できます。",
   "map": {
-    "wifeEmbedUrl": "",
-    "daughterEmbedUrl": ""
+    "wifeEmbedUrl": "https://maps.app.goo.gl/sample_wife_link",
+    "daughterEmbedUrl": "https://maps.app.goo.gl/sample_daughter_link"
   },
   "_comment_weather": "天気予報設定。currentLocationName を空文字にしておくと、GPSから自動的に地名（例: 品川区、横浜市中区など）を判別して表示します。手動で地名を固定したい場合は「港区」「大阪市」などと入力してください。",
   "weather": {
@@ -17,9 +17,11 @@
     "provider": "open-meteo",
     "openWeatherApiKey": ""
   },
-  "_comment_youtube": "YouTubeタイル設定。isPremium を true に設定すると広告非表示最適化モードが有効になります。※iPadのSafariで一度 youtube.com にアクセスしてYouTube Premiumアカウントにログインしておくことで、埋め込みプレーヤーでも広告が排除されます。",
+  "_comment_youtube": "【YouTube Premium / CM完全非表示設定】isPremiumをtrueにし、googleAccountに契約中のGoogleアカウントを設定してください。adFreeModeによりCMが排除されます。",
   "youtube": {
     "isPremium": true,
+    "googleAccount": "your_premium_account@gmail.com",
+    "adFreeMode": true,
     "genre": "all_mix",
     "rotationSeconds": 180,
     "customVideoIds": [
@@ -27,8 +29,8 @@
       "coYw-eVU0Ks",
       "CmQi-BxdnSA",
       "jfKfPfyJRdk",
-      "rUxyKA_-grg",
-      "1La4QzGeaaQ"
-    ]
+      "rUxyKA_-grg"
+    ],
+    "_comment_note": "iPadでCMを完全非表示にするには、サイネージ右上の⚙️設定またはYouTubeタイルの「ログイン↗」から一度SafariでYouTubeにログインし、iPad本体の【設定】>【Safari】>【「サイト越えトラッキングを防ぐ」】をOFFにしてください。"
   }
 }

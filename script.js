@@ -37,7 +37,9 @@ const CONFIG = {
 
   // 4. YouTubeタイル設定 (3分自動ローテーション・お好み動画)
   youtube: {
-    isPremium: true,       // YouTube Premium契約 (広告非表示・最適化モード)
+    isPremium: true,       // YouTube Premium契約 (広告・CM非表示モード)
+    googleAccount: "",     // Premium契約のGoogleアカウント (任意: user@gmail.com)
+    adFreeMode: true,      // 広告・CM完全排除モード
     genre: "all_mix",      // デフォルト: 総合ミックス (ニュース・ウェザーニュース・アキバ・テック)
     customVideoIds: [],    // ユーザー指定のカスタム動画ID配列
     rotationSeconds: 180,  // 表示時間: 3分 (180秒)
@@ -655,29 +657,138 @@ function getWeatherIconByOwm(iconCode) {
 /* =========================================================
    3. Googleカレンダー & 4. Googleマップ 埋め込み制御
    ========================================================= */
+
+// iframeタグの貼り付けなどから純粋なURLのみを抽出・サニタイズ
+function extractUrlOrClean(input) {
+  if (!input || typeof input !== "string") return "";
+  let val = input.trim();
+  const iframeMatch = val.match(/src=["']([^"']+)["']/i);
+  if (iframeMatch && iframeMatch[1]) {
+    val = iframeMatch[1];
+  }
+  return val.trim();
+}
+
+// URLまたは住所・座標からiframeに埋め込み可能なURLを生成 (埋め込み不可ならnull)
+function getEmbeddableMapUrl(rawUrl) {
+  if (!rawUrl) return null;
+  const url = extractUrlOrClean(rawUrl);
+  const lower = url.toLowerCase();
+
+  // 既にGoogleマップの埋め込み用URL (embed) または output=embed の場合
+  if (lower.includes("/maps/embed") || lower.includes("output=embed")) {
+    return url;
+  }
+
+  // Googleマップの「現在地共有」短縮URLやアプリリンク、iCloud等はiframe描画が制限されているためnull
+  if (lower.includes("maps.app.goo.gl") || lower.includes("goo.gl/maps") || lower.includes("icloud.com") || lower.includes("life360.com")) {
+    return null;
+  }
+
+  // URL内に座標が含まれる場合 (例: @35.6197,139.7285)
+  const atMatch = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (atMatch) {
+    return `https://maps.google.com/maps?q=${atMatch[1]},${atMatch[2]}&z=15&output=embed`;
+  }
+  const qMatch = url.match(/[?&]q=([0-9.,-]+)/);
+  if (qMatch) {
+    return `https://maps.google.com/maps?q=${qMatch[1]}&z=15&output=embed`;
+  }
+  const llMatch = url.match(/[?&]ll=([0-9.,-]+)/);
+  if (llMatch) {
+    return `https://maps.google.com/maps?q=${llMatch[1]}&z=15&output=embed`;
+  }
+
+  // 住所または地名、または "35.6197,139.7285" のような平文入力の場合
+  if (!url.startsWith("http://") && !url.startsWith("https://") && url.length > 0) {
+    return `https://maps.google.com/maps?q=${encodeURIComponent(url)}&z=15&output=embed`;
+  }
+
+  // 通常のgoogle.com/maps閲覧用URLはiframe制限があるためnull
+  if (lower.includes("google.com/maps") || lower.includes("google.co.jp/maps")) {
+    return null;
+  }
+
+  return url;
+}
+
+// 妻 / 娘のマップペイン表示制御 (iframe描画 または リアルタイム位置連携カード表示)
+function setupPersonMapPane(personKey, rawUrl) {
+  const iframe = document.getElementById(`map-iframe-${personKey}`);
+  const placeholder = document.getElementById(`map-placeholder-${personKey}`);
+  const liveCard = document.getElementById(`map-live-card-${personKey}`);
+  const openLink = document.getElementById(`map-open-link-${personKey}`);
+
+  const personLabel = (personKey === "wife") ? "妻" : "娘";
+  const personEmoji = (personKey === "wife") ? "👩" : "👧";
+
+  if (!rawUrl || rawUrl.trim() === "") {
+    if (iframe) {
+      iframe.src = "about:blank";
+      iframe.style.display = "block";
+    }
+    if (placeholder) placeholder.classList.remove("hidden");
+    if (liveCard) liveCard.classList.add("hidden");
+    if (openLink) openLink.style.display = "none";
+    return;
+  }
+
+  const url = extractUrlOrClean(rawUrl);
+  if (openLink) {
+    openLink.href = url;
+    openLink.style.display = "inline-flex";
+  }
+
+  const embedUrl = getEmbeddableMapUrl(url);
+  if (embedUrl) {
+    // 埋め込み可能 (住所・座標・embed URL)
+    if (iframe) {
+      iframe.src = embedUrl;
+      iframe.style.display = "block";
+    }
+    if (placeholder) placeholder.classList.add("hidden");
+    if (liveCard) liveCard.classList.add("hidden");
+  } else {
+    // Google現在地共有リンク (maps.app.goo.gl 等: iframeブロック対策として専用連携カードを表示)
+    if (iframe) {
+      iframe.src = "about:blank";
+      iframe.style.display = "none";
+    }
+    if (placeholder) placeholder.classList.add("hidden");
+    if (liveCard) {
+      liveCard.classList.remove("hidden");
+      const btnLaunch = liveCard.querySelector(".btn-map-launch");
+      if (btnLaunch) {
+        btnLaunch.href = url;
+        btnLaunch.textContent = `🗺️ ${personEmoji} ${personLabel}の現在地をGoogleマップで確認 ↗`;
+      }
+      const noteEl = liveCard.querySelector(".map-live-note");
+      if (noteEl) {
+        noteEl.textContent = `タップするとGoogleマップアプリまたはSafariでリアルタイム位置を確認できます`;
+      }
+    }
+  }
+}
+
 function initEmbeds() {
-  // カレンダー
+  // 1. カレンダー
   const calIframe = document.getElementById("calendar-iframe");
   const calPlaceholder = document.getElementById("calendar-placeholder");
-  if (CONFIG.calendar.embedUrl && CONFIG.calendar.embedUrl.trim() !== "") {
-    calIframe.src = CONFIG.calendar.embedUrl;
+  const btnCalExt = document.getElementById("btn-calendar-external");
+  const rawCalUrl = CONFIG.calendar.embedUrl;
+
+  if (rawCalUrl && rawCalUrl.trim() !== "") {
+    const cleanCalUrl = extractUrlOrClean(rawCalUrl);
+    if (calIframe) calIframe.src = cleanCalUrl;
     if (calPlaceholder) calPlaceholder.classList.add("hidden");
+    if (btnCalExt) {
+      btnCalExt.href = cleanCalUrl.includes("calendar.google.com") ? cleanCalUrl : "https://calendar.google.com";
+    }
   }
 
-  // マップ (妻 & 娘の上下2分割)
-  const mapIframeWife = document.getElementById("map-iframe-wife");
-  const mapPlaceholderWife = document.getElementById("map-placeholder-wife");
-  if (CONFIG.map.wifeEmbedUrl && CONFIG.map.wifeEmbedUrl.trim() !== "") {
-    if (mapIframeWife) mapIframeWife.src = CONFIG.map.wifeEmbedUrl;
-    if (mapPlaceholderWife) mapPlaceholderWife.classList.add("hidden");
-  }
-
-  const mapIframeDaughter = document.getElementById("map-iframe-daughter");
-  const mapPlaceholderDaughter = document.getElementById("map-placeholder-daughter");
-  if (CONFIG.map.daughterEmbedUrl && CONFIG.map.daughterEmbedUrl.trim() !== "") {
-    if (mapIframeDaughter) mapIframeDaughter.src = CONFIG.map.daughterEmbedUrl;
-    if (mapPlaceholderDaughter) mapPlaceholderDaughter.classList.add("hidden");
-  }
+  // 2. マップ (妻 & 娘の上下2分割)
+  setupPersonMapPane("wife", CONFIG.map.wifeEmbedUrl);
+  setupPersonMapPane("daughter", CONFIG.map.daughterEmbedUrl);
 }
 
 
@@ -685,12 +796,11 @@ function initEmbeds() {
    5. YouTube プレイヤー & 3分自動ローテーション機能
    ユーザーの好みに合わせた動画を3分ごとに自動切り替え
    ========================================================= */
-// ジャンル別おすすめ動画プール (テレビニュース・ウェザーニュース・アキバ・テック・チル)
-// ジャンル別おすすめ動画プール (有効確認済み・高画質安定配信)
+// ジャンル別おすすめ動画プール (24時間ライブ配信・安定ストリームでCM発生を排除)
 const YT_GENRE_POOLS = {
   all_mix: {
     label: "総合ミックス",
-    // ニュースライブ、ウェザーニュース、4K映像、Lo-Fiを順次3分ローテ
+    // ニュースライブ、ウェザーニュース、Lo-Fiを順次3分ローテ
     videos: [
       "WO-T3EPxTwQ", // ウェザーニュースLiVE (24h生放送)
       "coYw-eVU0Ks", // テレ朝NEWS24 (24h最新ニュース)
@@ -710,8 +820,8 @@ const YT_GENRE_POOLS = {
   akiba_gadget: {
     label: "アキバ・最新テック",
     videos: [
-      "1La4QzGeaaQ", // 4K 超高画質映像ツアー
-      "coYw-eVU0Ks", // ニュースライブ
+      "CmQi-BxdnSA", // TBS NEWS DIG (最新テック・情報)
+      "coYw-eVU0Ks", // テレ朝NEWS24
       "jfKfPfyJRdk", // 作業用Lo-Fi
       "WO-T3EPxTwQ"  // ウェザーニュース
     ]
@@ -721,7 +831,7 @@ const YT_GENRE_POOLS = {
     videos: [
       "coYw-eVU0Ks", // テレ朝NEWS24
       "CmQi-BxdnSA", // TBS NEWS DIG
-      "1La4QzGeaaQ"  // 4K映像
+      "WO-T3EPxTwQ"  // ウェザーニュース
     ]
   },
   desk_setup: {
@@ -760,15 +870,38 @@ function getYtActivePool() {
 
 function updateYtGenreBadge() {
   const badge = document.getElementById("yt-genre-badge");
-  if (!badge) return;
+  const accountBadge = document.getElementById("yt-account-badge");
+  const loginBtn = document.getElementById("btn-yt-login");
+
   const isPrem = !!CONFIG.youtube.isPremium;
-  const premPrefix = isPrem ? "💎 " : "";
+  const account = CONFIG.youtube.googleAccount || "";
+
+  if (accountBadge) {
+    if (isPrem) {
+      accountBadge.style.display = "inline-flex";
+      accountBadge.textContent = account ? `💎 Premium (${account})` : "💎 Premium";
+      accountBadge.title = account ? `Premium契約: ${account}` : "YouTube Premium連携モード";
+    } else {
+      accountBadge.style.display = "none";
+    }
+  }
+
+  if (loginBtn) {
+    if (account) {
+      loginBtn.textContent = "アカウント切替 ↗";
+      loginBtn.title = `現在のアカウント: ${account}`;
+    } else {
+      loginBtn.textContent = "ログイン ↗";
+    }
+  }
+
+  if (!badge) return;
   if (CONFIG.youtube.customVideoIds && CONFIG.youtube.customVideoIds.length > 0) {
-    badge.textContent = `${premPrefix}カスタムリスト`;
+    badge.textContent = `カスタムリスト`;
   } else {
     const genre = CONFIG.youtube.genre || "all_mix";
     const poolObj = YT_GENRE_POOLS[genre] || YT_GENRE_POOLS.all_mix;
-    badge.textContent = `${premPrefix}${poolObj.label}`;
+    badge.textContent = `${poolObj.label}`;
   }
 }
 
@@ -1280,15 +1413,18 @@ function loadSavedSettings() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const saved = JSON.parse(raw);
-      if (saved.calendarUrl) CONFIG.calendar.embedUrl = saved.calendarUrl;
+      if (saved.calendarUrl) CONFIG.calendar.embedUrl = extractUrlOrClean(saved.calendarUrl);
       // 妻 & 娘のGoogleマップURL
-      if (saved.mapWifeUrl) CONFIG.map.wifeEmbedUrl = saved.mapWifeUrl;
-      else if (saved.mapUrl) CONFIG.map.wifeEmbedUrl = saved.mapUrl; // 互換性
-      if (saved.mapDaughterUrl) CONFIG.map.daughterEmbedUrl = saved.mapDaughterUrl;
+      if (saved.mapWifeUrl) CONFIG.map.wifeEmbedUrl = extractUrlOrClean(saved.mapWifeUrl);
+      else if (saved.mapUrl) CONFIG.map.wifeEmbedUrl = extractUrlOrClean(saved.mapUrl); // 互換性
+      if (saved.mapDaughterUrl) CONFIG.map.daughterEmbedUrl = extractUrlOrClean(saved.mapDaughterUrl);
 
       // YouTube & Premium
       if (typeof saved.youtubeIsPremium === "boolean") CONFIG.youtube.isPremium = saved.youtubeIsPremium;
       else if (typeof saved.isPremium === "boolean") CONFIG.youtube.isPremium = saved.isPremium;
+
+      if (saved.googleAccount) CONFIG.youtube.googleAccount = saved.googleAccount;
+      if (typeof saved.adFreeMode === "boolean") CONFIG.youtube.adFreeMode = saved.adFreeMode;
 
       if (saved.youtubeGenre) CONFIG.youtube.genre = saved.youtubeGenre;
       if (saved.youtubeCustomIds && Array.isArray(saved.youtubeCustomIds)) {
@@ -1316,6 +1452,7 @@ function initSettingsModal() {
   const inputMapWife = document.getElementById("cfg-map-wife-url");
   const inputMapDaughter = document.getElementById("cfg-map-daughter-url");
   const checkYtPremium = document.getElementById("cfg-youtube-premium");
+  const inputGoogleAccount = document.getElementById("cfg-google-account");
   const selectYtGenre = document.getElementById("cfg-youtube-genre");
   const inputYtCustom = document.getElementById("cfg-youtube-custom-ids");
   const inputLocName = document.getElementById("cfg-current-loc-name");
@@ -1387,6 +1524,7 @@ function initSettingsModal() {
     if (inputMapWife) inputMapWife.value = CONFIG.map.wifeEmbedUrl || "";
     if (inputMapDaughter) inputMapDaughter.value = CONFIG.map.daughterEmbedUrl || "";
     if (checkYtPremium) checkYtPremium.checked = !!CONFIG.youtube.isPremium;
+    if (inputGoogleAccount) inputGoogleAccount.value = CONFIG.youtube.googleAccount || "";
     if (selectYtGenre) selectYtGenre.value = CONFIG.youtube.genre || "all_mix";
     if (inputYtCustom) inputYtCustom.value = (CONFIG.youtube.customVideoIds || []).join(", ");
     if (inputLocName) inputLocName.value = CONFIG.weather.currentLocationName || "";
@@ -1422,10 +1560,12 @@ function initSettingsModal() {
       const customList = rawCustom ? rawCustom.split(",").map(s => s.trim()).filter(s => s.length > 0) : [];
 
       const newSettings = {
-        calendarUrl: inputCal ? inputCal.value.trim() : "",
-        mapWifeUrl: inputMapWife ? inputMapWife.value.trim() : "",
-        mapDaughterUrl: inputMapDaughter ? inputMapDaughter.value.trim() : "",
+        calendarUrl: inputCal ? extractUrlOrClean(inputCal.value) : "",
+        mapWifeUrl: inputMapWife ? extractUrlOrClean(inputMapWife.value) : "",
+        mapDaughterUrl: inputMapDaughter ? extractUrlOrClean(inputMapDaughter.value) : "",
         youtubeIsPremium: checkYtPremium ? checkYtPremium.checked : true,
+        googleAccount: inputGoogleAccount ? inputGoogleAccount.value.trim() : "",
+        adFreeMode: true,
         youtubeGenre: selectYtGenre ? selectYtGenre.value : "all_mix",
         youtubeCustomIds: customList,
         currentLocationName: inputLocName ? inputLocName.value.trim() : "",
@@ -1445,31 +1585,64 @@ function applyImportedJsonConfig(parsed) {
   if (!parsed || typeof parsed !== "object") return;
   const currentSettings = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
 
-  // カレンダー
-  if (parsed.calendar && parsed.calendar.embedUrl) currentSettings.calendarUrl = parsed.calendar.embedUrl;
-  else if (parsed.calendarUrl) currentSettings.calendarUrl = parsed.calendarUrl;
-
-  // マップ
-  if (parsed.map) {
-    if (parsed.map.wifeEmbedUrl) currentSettings.mapWifeUrl = parsed.map.wifeEmbedUrl;
-    if (parsed.map.daughterEmbedUrl) currentSettings.mapDaughterUrl = parsed.map.daughterEmbedUrl;
+  // 1. カレンダー (様々なキー名やiframeタグ貼り付けに対応)
+  let calVal = "";
+  if (parsed.calendar && typeof parsed.calendar === "object") {
+    calVal = parsed.calendar.embedUrl || parsed.calendar.url || parsed.calendar.src || "";
+  } else if (typeof parsed.calendar === "string") {
+    calVal = parsed.calendar;
   }
-  if (parsed.mapWifeUrl) currentSettings.mapWifeUrl = parsed.mapWifeUrl;
-  if (parsed.mapDaughterUrl) currentSettings.mapDaughterUrl = parsed.mapDaughterUrl;
+  if (!calVal) {
+    calVal = parsed.calendarUrl || parsed.calendar_url || parsed.calendarEmbedUrl || "";
+  }
+  if (calVal) currentSettings.calendarUrl = extractUrlOrClean(calVal);
 
-  // YouTube & Premium
-  if (parsed.youtube) {
+  // 2. マップ / 家族の位置情報 (妻 & 娘の柔軟なキー名対応)
+  let wifeVal = "";
+  let daughterVal = "";
+
+  if (parsed.map && typeof parsed.map === "object") {
+    wifeVal = parsed.map.wifeEmbedUrl || parsed.map.wifeUrl || parsed.map.wife || parsed.map.wife_embed_url || parsed.map.wife_url || parsed.map.wifeLocation || "";
+    daughterVal = parsed.map.daughterEmbedUrl || parsed.map.daughterUrl || parsed.map.daughter || parsed.map.daughter_embed_url || parsed.map.daughter_url || parsed.map.daughterLocation || "";
+  }
+  if (!wifeVal) {
+    wifeVal = parsed.mapWifeUrl || parsed.mapWife || parsed.wifeEmbedUrl || parsed.wifeUrl || parsed.wife || "";
+  }
+  if (!daughterVal) {
+    daughterVal = parsed.mapDaughterUrl || parsed.mapDaughter || parsed.daughterEmbedUrl || parsed.daughterUrl || parsed.daughter || "";
+  }
+
+  // family または location キーでの記述にもフォールバック対応
+  if (parsed.family && typeof parsed.family === "object") {
+    if (!wifeVal) wifeVal = parsed.family.wifeUrl || parsed.family.wife || parsed.family.wifeEmbedUrl || "";
+    if (!daughterVal) daughterVal = parsed.family.daughterUrl || parsed.family.daughter || parsed.family.daughterEmbedUrl || "";
+  }
+  if (parsed.location && typeof parsed.location === "object") {
+    if (!wifeVal) wifeVal = parsed.location.wifeUrl || parsed.location.wife || parsed.location.wifeEmbedUrl || "";
+    if (!daughterVal) daughterVal = parsed.location.daughterUrl || parsed.location.daughter || parsed.location.daughterEmbedUrl || "";
+  }
+
+  if (wifeVal) currentSettings.mapWifeUrl = extractUrlOrClean(wifeVal);
+  if (daughterVal) currentSettings.mapDaughterUrl = extractUrlOrClean(daughterVal);
+
+  // 3. YouTube & Premium
+  if (parsed.youtube && typeof parsed.youtube === "object") {
     if (typeof parsed.youtube.isPremium === "boolean") currentSettings.youtubeIsPremium = parsed.youtube.isPremium;
+    if (parsed.youtube.googleAccount) currentSettings.googleAccount = parsed.youtube.googleAccount.trim();
+    if (parsed.youtube.email) currentSettings.googleAccount = parsed.youtube.email.trim();
+    if (typeof parsed.youtube.adFreeMode === "boolean") currentSettings.adFreeMode = parsed.youtube.adFreeMode;
     if (parsed.youtube.genre) currentSettings.youtubeGenre = parsed.youtube.genre;
     if (Array.isArray(parsed.youtube.customVideoIds)) currentSettings.youtubeCustomIds = parsed.youtube.customVideoIds;
   }
+  if (parsed.googleAccount) currentSettings.googleAccount = parsed.googleAccount.trim();
   if (typeof parsed.youtubeIsPremium === "boolean") currentSettings.youtubeIsPremium = parsed.youtubeIsPremium;
   if (typeof parsed.isPremium === "boolean") currentSettings.youtubeIsPremium = parsed.isPremium;
+  if (typeof parsed.adFreeMode === "boolean") currentSettings.adFreeMode = parsed.adFreeMode;
   if (parsed.youtubeGenre) currentSettings.youtubeGenre = parsed.youtubeGenre;
   if (Array.isArray(parsed.youtubeCustomIds)) currentSettings.youtubeCustomIds = parsed.youtubeCustomIds;
 
-  // 天気
-  if (parsed.weather) {
+  // 4. 天気
+  if (parsed.weather && typeof parsed.weather === "object") {
     if (parsed.weather.currentLocationName !== undefined) currentSettings.currentLocationName = parsed.weather.currentLocationName;
     if (parsed.weather.provider) currentSettings.weatherProvider = parsed.weather.provider;
     if (parsed.weather.openWeatherApiKey) currentSettings.openWeatherApiKey = parsed.weather.openWeatherApiKey;
@@ -1501,6 +1674,8 @@ function exportCurrentConfigToJson() {
     },
     youtube: {
       isPremium: !!CONFIG.youtube.isPremium,
+      googleAccount: CONFIG.youtube.googleAccount || "",
+      adFreeMode: (CONFIG.youtube.adFreeMode !== undefined) ? !!CONFIG.youtube.adFreeMode : true,
       genre: CONFIG.youtube.genre || "all_mix",
       rotationSeconds: CONFIG.youtube.rotationSeconds || 180,
       customVideoIds: CONFIG.youtube.customVideoIds || []
