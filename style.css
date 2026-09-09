@@ -1,0 +1,1651 @@
+/* =========================================================
+   Smart Signage Dashboard - CSS Grid & Dark Theme Stylesheet
+   Target: iPad Pro (2nd Gen, 4:3 Aspect Ratio) Safari Fullscreen
+   ========================================================= */
+
+:root {
+  /* カラーパレット (夜間でも目に優しいダークモード) */
+  --bg-primary: #0a0d14;
+  --bg-tile: #121824;
+  --bg-tile-hover: #161e2e;
+  --bg-glass: rgba(18, 24, 36, 0.85);
+
+  --border-subtle: #1e293b;
+  --border-focus: #3b82f6;
+
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  --accent-cyan: #38bdf8;
+  --accent-blue: #60a5fa;
+  --accent-orange: #fb923c;
+  --accent-green: #4ade80;
+  --accent-red: #f87171;
+
+  --gap-size: 14px;
+  --radius-tile: 16px;
+  --radius-inner: 10px;
+}
+
+/* 画面全体のリセット & 全画面スクロール防止 (サイネージ仕様) */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+html, body {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Inter', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* =========================================================
+   メイングリッドレイアウト (CSS Grid)
+   iPad Pro (横向き 4:3) に最適化した 4列 × 2行 構成
+   ========================================================= */
+.dashboard-container {
+  display: grid;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  padding: var(--gap-size);
+  gap: var(--gap-size);
+  
+  /* 4列 × 2行 のグリッド定義 (YouTubeは横2マス結合) */
+  grid-template-columns: 1.05fr 1fr 1fr 1.05fr;
+  grid-template-rows: 1fr 1.12fr;
+  grid-template-areas:
+    "clock    weather   gemini    calendar"
+    "news     youtube   youtube   map";
+}
+
+/* タイル共通スタイル */
+.tile {
+  background: var(--bg-tile);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-tile);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.tile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  font-size: 0.95rem;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.btn-icon:hover {
+  opacity: 1;
+  transform: rotate(45deg);
+}
+
+.tile-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* =========================================================
+   1. 時計・日付タイル
+   ========================================================= */
+.tile-clock {
+  grid-area: clock;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  background-color: var(--accent-green);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--accent-green);
+  animation: pulse-live 2s infinite ease-in-out;
+}
+
+@keyframes pulse-live {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.clock-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+}
+
+.date-display {
+  font-size: clamp(1.3rem, 2.8vw, 1.85rem);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+}
+
+.time-display {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: clamp(5.4rem, 12.5vw, 8.8rem);
+  font-weight: 900;
+  color: var(--text-primary);
+  line-height: 0.88;
+  letter-spacing: -0.04em;
+  text-shadow: 0 0 40px rgba(56, 189, 248, 0.4);
+  display: flex;
+  align-items: baseline;
+}
+
+.seconds-display {
+  font-size: 0.36em;
+  color: var(--accent-cyan);
+  margin-left: 6px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+/* GeminiLive連動 カウントダウンタイマーバナー */
+.clock-timer-banner {
+  margin-top: 6px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  border-radius: 8px;
+  padding: 4px 12px;
+  width: 92%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.25);
+  animation: timer-pulse 2s infinite ease-in-out;
+}
+
+.clock-timer-banner.hidden {
+  display: none !important;
+}
+
+@keyframes timer-pulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(245, 158, 11, 0.2); }
+  50% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.4); }
+}
+
+.timer-banner-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.timer-icon-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+.timer-countdown {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+}
+
+.timer-cancel-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 0.65rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.timer-cancel-btn:hover {
+  background: rgba(239, 68, 68, 0.8);
+  border-color: #ef4444;
+}
+
+.timer-progress-bar-bg {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.timer-progress-bar {
+  height: 100%;
+  width: 100%;
+  background: #fbbf24;
+  transition: width 1s linear;
+}
+
+/* =========================================================
+   2. 天気予報タイル (現在地 & 大崎駅の上下2分割同時表示)
+   ========================================================= */
+.tile-weather {
+  grid-area: weather;
+  padding: 8px 10px;
+}
+
+.tile-weather .tile-header,
+.tile-news .tile-header {
+  margin-bottom: 5px;
+  padding-bottom: 4px;
+}
+
+.weather-split-container {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.weather-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-inner);
+  padding: 5px 8px;
+  min-height: 0;
+  position: relative;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+  overflow: hidden;
+}
+
+/* 警報発令ペインの赤枠・パルス発光 */
+.weather-pane.severe-warning {
+  border-color: rgba(239, 68, 68, 0.7);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.weather-pane.advisory-warning {
+  border-color: rgba(234, 179, 8, 0.5);
+  box-shadow: 0 0 10px rgba(234, 179, 8, 0.15);
+}
+
+.weather-pane-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+  flex-shrink: 0;
+}
+
+.weather-loc-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.badge-current {
+  background: rgba(56, 189, 248, 0.15);
+  color: var(--accent-cyan);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.badge-osaki {
+  background: rgba(129, 140, 248, 0.15);
+  color: #818cf8;
+  border: 1px solid rgba(129, 140, 248, 0.3);
+}
+
+.pane-updated-badge {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+}
+
+/* 中間部: 警報・注意報・平常バナー (常時表示) */
+.weather-alert-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 5px;
+  padding: 3px 8px;
+  margin: 0;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+/* 平常時 (発表なし) */
+.weather-alert-banner.normal {
+  background: rgba(34, 197, 94, 0.07);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.weather-alert-banner.normal .alert-status-dot {
+  background-color: #22c55e;
+  box-shadow: 0 0 5px rgba(34, 197, 94, 0.6);
+}
+
+.weather-alert-banner.normal .alert-badge {
+  background: #16a34a;
+  color: #fff;
+}
+
+.weather-alert-banner.normal .alert-text {
+  color: #86efac;
+}
+
+/* 注意報発表時 */
+.weather-alert-banner.advisory {
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.45);
+  animation: alert-flash 2.5s infinite alternate ease-in-out;
+}
+
+.weather-alert-banner.advisory .alert-status-dot {
+  background-color: #eab308;
+  box-shadow: 0 0 6px #eab308;
+  animation: pulse-live 1.2s infinite ease-in-out;
+}
+
+.weather-alert-banner.advisory .alert-badge {
+  background: #ca8a04;
+  color: #fff;
+}
+
+.weather-alert-banner.advisory .alert-text {
+  color: #fef08a;
+}
+
+/* 警報・特別警報発表時 */
+.weather-alert-banner.warning,
+.weather-alert-banner.severe {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(249, 115, 22, 0.2));
+  border: 1px solid rgba(239, 68, 68, 0.65);
+  animation: alert-flash 1.4s infinite alternate ease-in-out;
+}
+
+.weather-alert-banner.warning .alert-status-dot,
+.weather-alert-banner.severe .alert-status-dot {
+  background-color: #ef4444;
+  box-shadow: 0 0 8px #ef4444;
+  animation: pulse-live 0.8s infinite ease-in-out;
+}
+
+.weather-alert-banner.warning .alert-badge,
+.weather-alert-banner.severe .alert-badge {
+  background: #dc2626;
+  color: #fff;
+}
+
+.weather-alert-banner.warning .alert-text,
+.weather-alert-banner.severe .alert-text {
+  color: #fca5a5;
+}
+
+.alert-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.alert-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.alert-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.alert-text {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.weather-pane-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 3px;
+  min-height: 0;
+}
+
+/* 上段: 現在天気 + 時間予報 (直近3コマ) */
+.weather-pane-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.weather-current-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.weather-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.weather-temp {
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.temp-unit {
+  font-size: 0.5em;
+  color: var(--accent-blue);
+  margin-left: 2px;
+}
+
+.weather-desc {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-top: 1px;
+}
+
+.weather-quick-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.weather-quick-meta b {
+  color: var(--text-secondary);
+}
+
+/* 時間予報 (直近3コマ 横並び) */
+.weather-hourly-strip {
+  display: flex;
+  gap: 3px;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.compact-hourly-slot {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  padding: 2px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  font-size: 0.6rem;
+  text-align: center;
+  min-width: 42px;
+}
+
+.compact-h-time {
+  font-size: 0.58rem;
+  color: var(--text-muted);
+}
+
+.compact-h-icon {
+  font-size: 0.82rem;
+  line-height: 1;
+}
+
+.compact-h-temp {
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.62rem;
+}
+
+.compact-h-pop {
+  color: var(--accent-cyan);
+  font-size: 0.56rem;
+  font-weight: 500;
+}
+
+/* 下段: 週間予報バー (直近5日間) */
+.weather-weekly-bar-wrap {
+  flex: 1;
+  min-height: 0;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 5px;
+  padding: 3px 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
+.weather-weekly-bar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.weekly-bar-label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: var(--accent-blue);
+  letter-spacing: 0.02em;
+}
+
+.weather-weekly-strip {
+  display: flex;
+  gap: 3px;
+  width: 100%;
+  flex: 1;
+}
+
+.compact-weekly-slot {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+  padding: 2px 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  font-size: 0.6rem;
+  text-align: center;
+  min-width: 0;
+}
+
+.compact-w-day {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.compact-w-day.sunday {
+  color: #f87171;
+}
+
+.compact-w-day.saturday {
+  color: #60a5fa;
+}
+
+.compact-w-icon {
+  font-size: 0.85rem;
+  line-height: 1;
+  margin: 1px 0;
+}
+
+.compact-w-temp {
+  font-size: 0.58rem;
+  display: flex;
+  gap: 2px;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.w-high {
+  color: #f87171;
+  font-weight: 600;
+}
+
+.w-low {
+  color: #60a5fa;
+  font-weight: 500;
+}
+
+/* =========================================================
+   3. Googleカレンダー & 4. Googleマップ タイル
+   ========================================================= */
+.tile-calendar {
+  grid-area: calendar;
+}
+
+.tile-map {
+  grid-area: map;
+}
+
+.calendar-body {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-inner);
+  overflow: hidden;
+  background: #0d1117;
+}
+
+/* マップ上下2分割コンテナ */
+.map-split-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.map-split-item {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border-radius: var(--radius-inner);
+  overflow: hidden;
+  background: #0d1117;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.map-person-badge {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  z-index: 10;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.embedded-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.placeholder-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(13, 17, 23, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.placeholder-overlay.hidden {
+  opacity: 0;
+}
+
+.placeholder-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.placeholder-icon {
+  font-size: 2.2rem;
+}
+
+.placeholder-content p {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.placeholder-content small {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* =========================================================
+   5. YouTube タイル (インライン・3分自動ローテーション)
+   ========================================================= */
+.tile-youtube {
+  grid-area: youtube;
+}
+
+.yt-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.yt-genre-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--accent-cyan);
+  background: rgba(56, 189, 248, 0.12);
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.yt-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.yt-timer-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.yt-timer-icon {
+  font-size: 0.75rem;
+}
+
+.yt-timer-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 30px;
+}
+
+.yt-timer-bar-bg {
+  width: 50px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.yt-timer-bar {
+  width: 100%;
+  height: 100%;
+  background: var(--accent-cyan);
+  transition: width 1s linear;
+}
+
+.yt-skip-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.yt-skip-btn:hover,
+.yt-skip-btn:active {
+  background: var(--accent-cyan);
+  color: #0b0f19;
+  border-color: var(--accent-cyan);
+}
+
+.youtube-body {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  border-radius: var(--radius-inner);
+  overflow: hidden;
+  background: #000;
+}
+
+#youtube-player-container {
+  width: 100%;
+  height: 100%;
+}
+
+#youtube-player {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* =========================================================
+   6. Yahoo!ニュース & 特価情報 (30秒フェードローテーション)
+   ========================================================= */
+.tile-news {
+  grid-area: news;
+  padding: 8px 10px;
+}
+
+.feed-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.feed-tab-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: color 0.4s ease;
+}
+
+.feed-tab-label.active {
+  color: var(--accent-orange);
+}
+
+.tab-separator {
+  color: var(--border-subtle);
+  font-size: 0.8rem;
+}
+
+.feed-timer-bar-wrap {
+  width: 60px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.feed-timer-bar {
+  width: 0%;
+  height: 100%;
+  background: var(--accent-orange);
+  transition: width 0.1s linear;
+}
+
+.news-body {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.news-channel-pane {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.6s ease, transform 0.6s ease;
+  transform: translateY(8px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.news-channel-pane.active {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.news-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.news-item {
+  list-style: none;
+}
+
+.news-item-link {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 4px 7px;
+  background: rgba(255, 255, 255, 0.02);
+  border-left: 3px solid var(--accent-orange);
+  border-radius: 5px;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.news-item-link:hover,
+.news-item-link:active {
+  background: rgba(251, 146, 60, 0.08);
+  border-left-color: #ff9800;
+  transform: translateX(2px);
+}
+
+/* ローテーションで現在要約表示中の記事のアクティブ表示 */
+.news-item.featured-active .news-item-link {
+  background: rgba(251, 146, 60, 0.14);
+  border-left-color: #ff9800;
+  border-left-width: 4px;
+  box-shadow: 0 2px 8px rgba(251, 146, 60, 0.15);
+}
+
+.news-item.featured-active .news-item-title {
+  color: #fff;
+  font-weight: 600;
+}
+
+.news-item-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.news-item-title {
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.news-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.news-source-tag {
+  font-size: 0.6rem;
+  background: rgba(251, 146, 60, 0.15);
+  color: var(--accent-orange);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.news-item-time {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+}
+
+.news-open-icon {
+  font-size: 0.6rem;
+  color: var(--accent-orange);
+  opacity: 0.7;
+  font-weight: 500;
+}
+
+.news-item-thumb-wrap {
+  width: 52px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #111827;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+
+.news-item-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.news-item-link:hover .news-item-thumb {
+  transform: scale(1.05);
+}
+
+.news-item-link:hover .news-open-icon {
+  opacity: 1;
+}
+
+/* 下部: 注目記事ボックス (上部3〜5行テキスト / 下部大画面図) */
+.news-featured-box {
+  flex: 1;
+  min-height: 0;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 5px 7px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.news-featured-link {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  text-decoration: none;
+  color: inherit;
+  gap: 4px;
+}
+
+/* 上部テキスト: タイトル + 3〜5行要約 + メタ行 */
+.news-featured-content {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow: hidden;
+  padding: 0 1px 2px 1px;
+}
+
+.news-featured-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.news-featured-summary {
+  font-size: 0.69rem;
+  color: #cbd5e1;
+  line-height: 1.36;
+  display: -webkit-box;
+  -webkit-line-clamp: 4; /* 3〜5行 (4行最適表示) */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+  word-break: break-word;
+}
+
+.news-featured-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 1px;
+}
+
+.news-featured-more {
+  font-size: 0.63rem;
+  color: var(--accent-orange);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* 下部: 表示領域全体に広がる図 (元のアスペクト比を維持しつつ余白なし) */
+.news-featured-thumb-wrap {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  border-radius: 5px;
+  overflow: hidden;
+  position: relative;
+  background: #070b12;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.news-featured-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* 元の図のアスペクト比を保ったまま領域全体に広げる */
+  display: block;
+  transition: transform 0.4s ease;
+}
+
+.news-featured-link:hover .news-featured-thumb {
+  transform: scale(1.02);
+}
+
+.featured-badge {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  background: rgba(234, 88, 12, 0.92);
+  color: #fff;
+  font-size: 0.58rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 2;
+}
+
+.news-loading {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 12px 0;
+}
+
+/* =========================================================
+   Gemini Live タイル スタイル & オーブアニメーション
+   ========================================================= */
+.tile-gemini {
+  grid-area: gemini;
+  background: radial-gradient(circle at 50% 20%, #151a2d, #0d111d);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  display: flex;
+  flex-direction: column;
+}
+
+.gemini-title {
+  background: linear-gradient(135deg, #38bdf8, #818cf8, #c084fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 700;
+}
+
+.gemini-status-badge {
+  font-size: 0.68rem;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  font-weight: 600;
+}
+
+.gemini-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gemini-external-link {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.gemini-external-link:hover {
+  color: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+}
+
+.gemini-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  position: relative;
+}
+
+/* Gemini Live 光のオーブ (Orb) */
+.gemini-orb-container {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+}
+
+.gemini-orb-container:hover {
+  transform: scale(1.06);
+}
+
+.gemini-orb {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  filter: blur(4px);
+}
+
+.orb-core {
+  position: absolute;
+  inset: 15%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #38bdf8 0%, #6366f1 60%, transparent 100%);
+  animation: orb-spin 6s linear infinite;
+}
+
+.orb-glow-1 {
+  position: absolute;
+  inset: 5%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #a855f7 0%, transparent 60%);
+  animation: orb-pulse 3s ease-in-out infinite alternate;
+  mix-blend-mode: screen;
+}
+
+.orb-glow-2 {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 70% 70%, #ec4899 0%, transparent 60%);
+  animation: orb-pulse 4s ease-in-out infinite alternate-reverse;
+  mix-blend-mode: screen;
+}
+
+.orb-glow-3 {
+  position: absolute;
+  inset: -10%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.4) 0%, transparent 70%);
+  animation: orb-breathing 2.5s ease-in-out infinite;
+}
+
+.gemini-mic-icon {
+  position: relative;
+  z-index: 2;
+  font-size: 1.6rem;
+  filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.7));
+}
+
+/* 音声入力中のオーブ活性化エフェクト */
+.gemini-orb-container.listening .gemini-orb {
+  filter: blur(2px);
+  animation: orb-listening 1.2s infinite ease-in-out;
+}
+
+.gemini-orb-container.listening .orb-core {
+  background: radial-gradient(circle, #4ade80 0%, #38bdf8 60%, transparent 100%);
+}
+
+@keyframes orb-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes orb-pulse {
+  0% { transform: scale(0.9) rotate(0deg); opacity: 0.6; }
+  100% { transform: scale(1.15) rotate(180deg); opacity: 1; }
+}
+
+@keyframes orb-breathing {
+  0%, 100% { transform: scale(0.85); opacity: 0.4; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+@keyframes orb-listening {
+  0%, 100% { transform: scale(1.0); }
+  50% { transform: scale(1.22); }
+}
+
+.gemini-speech-box {
+  width: 100%;
+  text-align: center;
+  padding: 0 8px;
+}
+
+.gemini-message {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.2em;
+}
+
+/* =========================================================
+   Gemini Live フルスクリーン対話オーバーレイ
+   ========================================================= */
+.gemini-fullscreen-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: #080b12;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.gemini-fullscreen-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.gemini-fs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 30px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.gemini-fs-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #38bdf8, #818cf8, #c084fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gemini-fs-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.fs-ext-link {
+  font-size: 0.85rem;
+  padding: 4px 12px;
+}
+
+.gemini-fs-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  gap: 24px;
+}
+
+.gemini-fs-orb-wrap {
+  width: 220px;
+  height: 220px;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease;
+}
+
+.gemini-fs-orb-wrap:hover {
+  transform: scale(1.05);
+}
+
+.fs-orb {
+  filter: blur(8px);
+}
+
+.gemini-fs-status {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.gemini-fs-conversation {
+  max-width: 600px;
+  width: 100%;
+  max-height: 250px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px;
+}
+
+.chat-bubble {
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.chat-bubble.gemini {
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  color: var(--text-primary);
+  align-self: flex-start;
+}
+
+.chat-bubble.user {
+  background: var(--accent-cyan);
+  color: #0b0f19;
+  font-weight: 500;
+  align-self: flex-end;
+}
+
+/* =========================================================
+   レスポンシブ対応 (iPad縦置きまたは狭い画面向け)
+   ========================================================= */
+@media (max-width: 900px), (orientation: portrait) {
+  .dashboard-container {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto;
+    grid-template-areas:
+      "clock    weather"
+      "gemini   calendar"
+      "youtube  youtube"
+      "news     map";
+    overflow-y: auto;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .tile {
+    min-height: 220px;
+  }
+}
+
+/* =========================================================
+   設定モーダル スタイル
+   ========================================================= */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+
+.modal-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.modal-container {
+  background: #161f30;
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  animation: modal-pop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modal-pop {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.modal-header h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal-tip {
+  background: rgba(56, 189, 248, 0.1);
+  border-left: 3px solid var(--accent-cyan);
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  color: #bae6fd;
+  line-height: 1.5;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.form-group input,
+.form-group select {
+  background: #0b0f19;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  border-color: var(--accent-cyan);
+}
+
+.form-group small {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: background-color 0.2s ease, opacity 0.2s ease;
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.btn-primary {
+  background: var(--accent-cyan);
+  color: #0b0f19;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}
+

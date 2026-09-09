@@ -1,0 +1,9 @@
+# 設定ファイル (個人情報を含むためGit管理から除外)
+config.js
+
+# OS / エディタ一時ファイル
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+

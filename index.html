@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Smart Signage Dashboard</title>
+
+  <!-- iOS Safari ホーム画面追加 (PWA/フルスクリーン) 設定 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Signage">
+
+  <!-- Google Fonts & Lucide Icons (CDN) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700;800&family=Noto+Sans+JP:wght@300;400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="dashboard-container">
+    <!-- タイル1: 時計・日付 -->
+    <section class="tile tile-clock" id="tile-clock">
+      <div class="tile-header">
+        <div class="header-left">
+          <span class="tile-title">現在時刻</span>
+          <span class="live-dot"></span>
+        </div>
+        <button id="btn-settings-open" class="btn-icon" title="設定を開く">⚙️</button>
+      </div>
+      <div class="clock-body">
+        <div class="date-display" id="date-display">----年--月--日 (--)</div>
+        <div class="time-display" id="time-display">--:--<span class="seconds-display" id="seconds-display">--</span></div>
+        <!-- GeminiLive連動 タイマーカウントダウン表示領域 -->
+        <div class="clock-timer-banner hidden" id="clock-timer-banner">
+          <div class="timer-banner-inner">
+            <span class="timer-icon-badge">⏱ タイマー</span>
+            <span class="timer-countdown" id="clock-timer-countdown">03:00</span>
+            <button class="timer-cancel-btn" id="btn-clock-timer-cancel" title="タイマーをキャンセル">✕</button>
+          </div>
+          <div class="timer-progress-bar-bg">
+            <div class="timer-progress-bar" id="clock-timer-progress"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- タイル2: 天気予報 (現在地 & 大崎駅の上下2分割同時表示) -->
+    <section class="tile tile-weather" id="tile-weather">
+      <div class="tile-header">
+        <span class="tile-title">天気予報 (現在地・大崎)</span>
+        <span class="update-badge" id="weather-updated-main">2拠点同時監視中</span>
+      </div>
+
+      <div class="weather-split-container">
+        <!-- 上段: 現在地ペイン -->
+        <div class="weather-pane" id="pane-weather-current">
+          <div class="weather-pane-header">
+            <div class="weather-loc-badge badge-current">📍 現在地</div>
+            <span class="pane-updated-badge" id="weather-updated-current">更新中...</span>
+          </div>
+
+          <div class="weather-pane-body">
+            <!-- 1. 上段: 現在天気 + 時間予報 (直近3コマ) -->
+            <div class="weather-pane-top-row">
+              <div class="weather-current-main">
+                <div class="weather-icon" id="weather-icon-current">☀️</div>
+                <div class="weather-temp-wrap">
+                  <div class="weather-temp" id="weather-temp-current">--<span class="temp-unit">°C</span></div>
+                  <div class="weather-desc" id="weather-desc-current">取得中...</div>
+                </div>
+                <div class="weather-quick-meta">
+                  <span>降水 <b id="weather-pop-current">--%</b></span>
+                  <span>風速 <b id="weather-wind-current">--m/s</b></span>
+                </div>
+              </div>
+              <div class="weather-hourly-strip" id="weather-hourly-current">
+                <div class="hourly-item-placeholder">取得中...</div>
+              </div>
+            </div>
+
+            <!-- 2. 中間部: 警報・注意報バナー (平常時は「発表なし」を表示) -->
+            <div class="weather-alert-banner normal" id="weather-alert-banner-current">
+              <div class="alert-status-dot" id="alert-dot-current"></div>
+              <div class="alert-content">
+                <span class="alert-badge" id="alert-badge-current">平常</span>
+                <span class="alert-text" id="alert-text-current">警報・注意報は発表されていません</span>
+              </div>
+            </div>
+
+            <!-- 3. 下段: 週間天気バー (直近5日間) -->
+            <div class="weather-weekly-bar-wrap">
+              <div class="weather-weekly-bar-header">
+                <span class="weekly-bar-label">📅 週間予報</span>
+              </div>
+              <div class="weather-weekly-strip" id="weather-weekly-current">
+                <div class="hourly-item-placeholder">週間予報取得中...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 下段: 品川区大崎駅ペイン -->
+        <div class="weather-pane" id="pane-weather-osaki">
+          <div class="weather-pane-header">
+            <div class="weather-loc-badge badge-osaki">🏢 品川区大崎</div>
+            <span class="pane-updated-badge" id="weather-updated-osaki">更新中...</span>
+          </div>
+
+          <div class="weather-pane-body">
+            <!-- 1. 上段: 現在天気 + 時間予報 (直近3コマ) -->
+            <div class="weather-pane-top-row">
+              <div class="weather-current-main">
+                <div class="weather-icon" id="weather-icon-osaki">☀️</div>
+                <div class="weather-temp-wrap">
+                  <div class="weather-temp" id="weather-temp-osaki">--<span class="temp-unit">°C</span></div>
+                  <div class="weather-desc" id="weather-desc-osaki">取得中...</div>
+                </div>
+                <div class="weather-quick-meta">
+                  <span>降水 <b id="weather-pop-osaki">--%</b></span>
+                  <span>風速 <b id="weather-wind-osaki">--m/s</b></span>
+                </div>
+              </div>
+              <div class="weather-hourly-strip" id="weather-hourly-osaki">
+                <div class="hourly-item-placeholder">取得中...</div>
+              </div>
+            </div>
+
+            <!-- 2. 中間部: 警報・注意報バナー (平常時は「発表なし」を表示) -->
+            <div class="weather-alert-banner normal" id="weather-alert-banner-osaki">
+              <div class="alert-status-dot" id="alert-dot-osaki"></div>
+              <div class="alert-content">
+                <span class="alert-badge" id="alert-badge-osaki">平常</span>
+                <span class="alert-text" id="alert-text-osaki">警報・注意報は発表されていません</span>
+              </div>
+            </div>
+
+            <!-- 3. 下段: 週間天気バー (直近5日間) -->
+            <div class="weather-weekly-bar-wrap">
+              <div class="weather-weekly-bar-header">
+                <span class="weekly-bar-label">📅 週間予報</span>
+              </div>
+              <div class="weather-weekly-strip" id="weather-weekly-osaki">
+                <div class="hourly-item-placeholder">週間予報取得中...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- タイル3: Googleカレンダー -->
+    <section class="tile tile-calendar" id="tile-calendar">
+      <div class="tile-header">
+        <span class="tile-title">スケジュール (カレンダー)</span>
+      </div>
+      <div class="calendar-body">
+        <!-- Googleカレンダーの埋め込みiframeまたはAPI連携用領域 -->
+        <iframe 
+          id="calendar-iframe" 
+          src="about:blank" 
+          class="embedded-iframe" 
+          frameborder="0" 
+          scrolling="no">
+        </iframe>
+        <div class="placeholder-overlay" id="calendar-placeholder">
+          <div class="placeholder-content">
+            <span class="placeholder-icon">📅</span>
+            <p>GoogleカレンダーのURLを設定してください</p>
+            <small>※右上の⚙️から登録できます</small>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- タイル: Gemini Live (AI音声対話 & ライブオーブ) -->
+    <section class="tile tile-gemini" id="tile-gemini">
+      <div class="tile-header">
+        <div class="header-left">
+          <span class="tile-title gemini-title">✨ Gemini Live</span>
+          <span class="gemini-status-badge" id="gemini-status">Ready</span>
+        </div>
+        <div class="gemini-header-actions">
+          <a href="https://gemini.google.com/live" target="_blank" class="gemini-external-link" title="公式Gemini Liveを開く">公式開く ↗</a>
+          <button id="btn-gemini-expand" class="btn-icon" title="全画面で開く">⛶</button>
+        </div>
+      </div>
+      <div class="gemini-body">
+        <div class="gemini-orb-container" id="gemini-orb-btn" title="タップしてGemini Liveと話す">
+          <div class="gemini-orb">
+            <div class="orb-core"></div>
+            <div class="orb-glow-1"></div>
+            <div class="orb-glow-2"></div>
+            <div class="orb-glow-3"></div>
+          </div>
+          <div class="gemini-mic-icon">🎙️</div>
+        </div>
+        <div class="gemini-speech-box">
+          <div class="gemini-message" id="gemini-transcript">「タップして話しかけてください」</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- タイル4: Googleマップ (妻 & 娘の上下2分割位置情報) -->
+    <section class="tile tile-map" id="tile-map">
+      <div class="tile-header">
+        <span class="tile-title">位置情報 (妻・娘)</span>
+      </div>
+      <div class="map-split-container">
+        <!-- 上段: 妻の位置情報 -->
+        <div class="map-split-item">
+          <div class="map-person-badge">👩 妻</div>
+          <iframe 
+            id="map-iframe-wife" 
+            src="about:blank" 
+            class="embedded-iframe" 
+            frameborder="0" 
+            allowfullscreen>
+          </iframe>
+          <div class="placeholder-overlay" id="map-placeholder-wife">
+            <div class="placeholder-content">
+              <span class="placeholder-icon">📍</span>
+              <p>妻の位置情報URLを設定</p>
+              <small>※右上の⚙️から登録できます</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- 下段: 娘の位置情報 -->
+        <div class="map-split-item">
+          <div class="map-person-badge">👧 娘</div>
+          <iframe 
+            id="map-iframe-daughter" 
+            src="about:blank" 
+            class="embedded-iframe" 
+            frameborder="0" 
+            allowfullscreen>
+          </iframe>
+          <div class="placeholder-overlay" id="map-placeholder-daughter">
+            <div class="placeholder-content">
+              <span class="placeholder-icon">📍</span>
+              <p>娘の位置情報URLを設定</p>
+              <small>※右上の⚙️から登録できます</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- タイル5: YouTube (3分自動ローテーション・おすすめ動画) -->
+    <section class="tile tile-youtube" id="tile-youtube">
+      <div class="tile-header">
+        <div class="yt-header-left">
+          <span class="tile-title">YouTube</span>
+          <span class="yt-genre-badge" id="yt-genre-badge">アキバ・ガジェット</span>
+        </div>
+        <div class="yt-header-controls">
+          <div class="yt-timer-wrap" title="3分で次の動画に切り替わります">
+            <span class="yt-timer-icon">⏱</span>
+            <span class="yt-timer-text" id="yt-timer-text">3:00</span>
+            <div class="yt-timer-bar-bg">
+              <div class="yt-timer-bar" id="yt-timer-bar"></div>
+            </div>
+          </div>
+          <button id="btn-yt-skip" class="yt-skip-btn" title="次の動画へスキップ">次の動画 ⏭</button>
+        </div>
+      </div>
+      <div class="youtube-body">
+        <!-- YouTube IFrame API用のターゲット要素 -->
+        <div id="youtube-player-container">
+          <div id="youtube-player"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- タイル6: Yahoo!ニュース & アキバ特価情報 (自動ローテーション) -->
+    <section class="tile tile-news" id="tile-news">
+      <div class="tile-header">
+        <div class="feed-tabs">
+          <span class="feed-tab-label active" id="news-tab-yahoo">IT・ガジェット速報 (GIZMODO)</span>
+          <span class="tab-separator">|</span>
+          <span class="feed-tab-label" id="news-tab-akiba">アキバ・PC特価 (ASCII)</span>
+        </div>
+        <div class="feed-timer-bar-wrap">
+          <div class="feed-timer-bar" id="feed-timer-bar"></div>
+        </div>
+      </div>
+      <div class="news-body">
+        <!-- Yahoo!ニュース (IT・ガジェット速報) 表示領域 -->
+        <div class="news-channel-pane active" id="pane-yahoo">
+          <ul class="news-list" id="yahoo-news-list">
+            <li class="news-loading">ニュースを取得中...</li>
+          </ul>
+          <!-- 下部空き領域: 注目記事の大きな図 ＋ 記事要約 -->
+          <div class="news-featured-box" id="yahoo-featured-box">
+            <div class="news-loading">要約を取得中...</div>
+          </div>
+        </div>
+
+        <!-- アキバ特価情報 表示領域 -->
+        <div class="news-channel-pane" id="pane-akiba">
+          <ul class="news-list" id="akiba-news-list">
+            <li class="news-loading">特価情報を取得中...</li>
+          </ul>
+          <!-- 下部空き領域: 注目記事の大きな図 ＋ 記事要約 -->
+          <div class="news-featured-box" id="akiba-featured-box">
+            <div class="news-loading">要約を取得中...</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 設定モーダル (個人情報をiPadの端末内にのみ保存するためのUI) -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2>ダッシュボード設定</h2>
+        <button class="modal-close" id="btn-settings-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-tip">
+          💡 <strong>安心設計:</strong> ここに入力した個人情報やURLは、GitHub等には送信されず、<strong>このiPadのブラウザ内（端末内）にのみ安全に保存</strong>されます。
+        </p>
+        
+        <div class="form-group">
+          <label for="cfg-calendar-url">Googleカレンダー 埋め込みURL</label>
+          <input type="text" id="cfg-calendar-url" placeholder="https://calendar.google.com/calendar/embed?src=...">
+          <small>カレンダー設定の「このカレンダーの統合」にある埋め込みコード（src="..."のURL）</small>
+        </div>
+
+        <div class="form-group">
+          <label for="cfg-map-wife-url">Googleマップ (妻の位置情報) 埋め込みURL</label>
+          <input type="text" id="cfg-map-wife-url" placeholder="https://maps.google.com/... (妻の位置情報共有URL)">
+          <small>Googleマップの現在地共有リンクまたはiframe用埋め込みURL</small>
+        </div>
+
+        <div class="form-group">
+          <label for="cfg-map-daughter-url">Googleマップ (娘の位置情報) 埋め込みURL</label>
+          <input type="text" id="cfg-map-daughter-url" placeholder="https://maps.google.com/... (娘の位置情報共有URL)">
+          <small>Googleマップの現在地共有リンクまたはiframe用埋め込みURL</small>
+        </div>
+
+        <div class="form-group">
+          <label for="cfg-youtube-genre">YouTube お好みの動画ジャンル</label>
+          <select id="cfg-youtube-genre">
+            <option value="all_mix">🌟 総合ミックス (ニュース・ウェザーニュース・アキバ・テック)</option>
+            <option value="news_weather">📺 テレビニュース & ウェザーニュース Live</option>
+            <option value="akiba_gadget">🏢 秋葉原・自作PC・ガジェット特価</option>
+            <option value="latest_tech">🚀 最新テクノロジー・AI・新型デバイス</option>
+            <option value="desk_setup">🖥️ デスク環境・ガジェットツアー</option>
+            <option value="lofi_relax">☕ 作業用BGM・Lo-Fi Hip Hop・カフェチル</option>
+          </select>
+          <small>※選択したジャンルの人気・最新動画が3分ごとに自動ローテーション再生されます</small>
+        </div>
+
+        <div class="form-group">
+          <label for="cfg-youtube-custom-ids">YouTube カスタム動画ID (任意・カンマ区切り)</label>
+          <input type="text" id="cfg-youtube-custom-ids" placeholder="jfKfPfyJRdk, dQw4w9WgXcQ, ...">
+          <small>特定の動画や配信のみをローテーションしたい場合に動画IDをカンマ区切りで指定できます</small>
+        </div>
+
+        <div class="form-group">
+          <label for="cfg-weather-provider">天気予報プロバイダ</label>
+          <select id="cfg-weather-provider">
+            <option value="open-meteo">Open-Meteo (APIキー不要・秋葉原)</option>
+            <option value="openweathermap">OpenWeatherMap (要APIキー)</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="group-owm-key" style="display: none;">
+          <label for="cfg-owm-key">OpenWeatherMap APIキー</label>
+          <input type="password" id="cfg-owm-key" placeholder="APIキーを入力">
+        </div>
+
+        <div class="form-group">
+          <label for="cfg-gemini-key">Gemini APIキー (Google AI Studio / 任意)</label>
+          <input type="password" id="cfg-gemini-key" placeholder="AIzaSy... (設定するとGemini 2.0 Flashと直接対話可能)">
+          <small>※未設定でもローカル対話・音声認識および公式Gemini Live連携がご利用いただけます</small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-settings-cancel">キャンセル</button>
+        <button class="btn btn-primary" id="btn-settings-save">設定を保存して反映</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gemini Live フルスクリーン対話オーバーレイ -->
+  <div class="gemini-fullscreen-overlay" id="gemini-fullscreen-modal">
+    <div class="gemini-fs-header">
+      <div class="gemini-fs-title">✨ Gemini Live</div>
+      <div class="gemini-fs-controls">
+        <a href="https://gemini.google.com/live" target="_blank" class="gemini-external-link fs-ext-link">公式Geminiを開く ↗</a>
+        <button class="modal-close" id="btn-gemini-fs-close">&times;</button>
+      </div>
+    </div>
+    <div class="gemini-fs-body">
+      <div class="gemini-fs-orb-wrap" id="gemini-fs-orb-btn">
+        <div class="gemini-orb fs-orb">
+          <div class="orb-core"></div>
+          <div class="orb-glow-1"></div>
+          <div class="orb-glow-2"></div>
+          <div class="orb-glow-3"></div>
+        </div>
+      </div>
+      <div class="gemini-fs-status" id="gemini-fs-status-text">タップして話しかけてください</div>
+      <div class="gemini-fs-conversation" id="gemini-fs-chat-log">
+        <div class="chat-bubble gemini">こんにちは！Gemini Liveです。何かお手伝いしましょうか？</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- YouTube IFrame API -->
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="script.js"></script>
+</body>
+</html>
+
