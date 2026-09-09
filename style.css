@@ -61,12 +61,12 @@ html, body {
   padding: var(--gap-size);
   gap: var(--gap-size);
   
-  /* 4列 × 2行 のグリッド定義 (YouTubeは横2マス結合) */
+  /* 4列 × 2行 のグリッド定義 (ニュース & YouTubeは横2マス結合) */
   grid-template-columns: 1.05fr 1fr 1fr 1.05fr;
   grid-template-rows: 1fr 1.12fr;
   grid-template-areas:
-    "clock    weather   gemini    calendar"
-    "news     youtube   youtube   map";
+    "clock    news      news      calendar"
+    "weather  youtube   youtube   map";
 }
 
 /* タイル共通スタイル */
@@ -933,8 +933,8 @@ html, body {
   transform: translateY(8px);
   overflow: hidden;
   display: flex;
-  flex-direction: column;
-  gap: 5px;
+  flex-direction: row;
+  gap: 10px;
 }
 
 .news-channel-pane.active {
@@ -947,8 +947,11 @@ html, body {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  flex-shrink: 0;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  justify-content: space-between;
 }
 
 .news-item {
@@ -1067,12 +1070,13 @@ html, body {
 
 /* 下部: 注目記事ボックス (上部3〜5行テキスト / 下部大画面図) */
 .news-featured-box {
-  flex: 1;
-  min-height: 0;
+  flex: 1.15;
+  min-width: 0;
+  height: 100%;
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
-  padding: 5px 7px;
+  border-radius: 8px;
+  padding: 6px 8px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1485,9 +1489,9 @@ html, body {
     grid-template-rows: auto;
     grid-template-areas:
       "clock    weather"
-      "gemini   calendar"
+      "news     calendar"
       "youtube  youtube"
-      "news     map";
+      "map      map";
     overflow-y: auto;
     height: auto;
     min-height: 100vh;
@@ -1496,6 +1500,109 @@ html, body {
   .tile {
     min-height: 220px;
   }
+
+  .news-channel-pane {
+    flex-direction: column;
+  }
+}
+
+/* =========================================================
+   設定ファイル(JSON) 読み込み/書き出し & Premium設定
+   ========================================================= */
+.settings-json-box {
+  background: rgba(56, 189, 248, 0.07);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.json-box-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--accent-cyan);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.json-box-desc {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin-bottom: 10px;
+}
+
+.json-btn-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-json-import {
+  background: linear-gradient(135deg, #0284c7, #2563eb);
+  color: #fff;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.82rem;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.btn-json-import:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.btn-json-export {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+  font-size: 0.82rem;
+  transition: background 0.2s ease;
+}
+
+.btn-json-export:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.json-import-status {
+  font-size: 0.78rem;
+  margin-top: 8px;
+  font-weight: 600;
+  min-height: 1.2em;
+}
+
+.form-checkbox-group {
+  margin-bottom: 14px;
+  background: rgba(56, 189, 248, 0.04);
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--accent-cyan);
+  font-size: 0.86rem;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #38bdf8;
+  cursor: pointer;
 }
 
 /* =========================================================

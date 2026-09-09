@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Smart Digital Signage Configuration",
+  "description": "iPadスマートサイネージ用設定ファイル。PCでこのファイルを編集後、iPadの設定画面(⚙️)から「設定JSONファイルを読み込む」で読み込むことができます。",
+  "_comment_calendar": "Googleカレンダーの埋め込みURL。Googleカレンダー設定 > 「このカレンダーの統合」にある埋め込みコード内の src=... のURLを貼り付けてください。",
+  "calendar": {
+    "embedUrl": "https://calendar.google.com/calendar/embed?src=YOUR_CALENDAR_ID%40group.calendar.google.com&ctz=Asia%2FTokyo"
+  },
+  "_comment_map": "Googleマップの位置情報共有URL。奥様とお嬢様の位置情報URL（または現在地URL）を設定すると上下2分割でリアルタイム表示されます。",
+  "map": {
+    "wifeEmbedUrl": "",
+    "daughterEmbedUrl": ""
+  },
+  "_comment_weather": "天気予報設定。currentLocationName を空文字にしておくと、GPSから自動的に地名（例: 品川区、横浜市中区など）を判別して表示します。手動で地名を固定したい場合は「港区」「大阪市」などと入力してください。",
+  "weather": {
+    "currentLocationName": "",
+    "provider": "open-meteo",
+    "openWeatherApiKey": ""
+  },
+  "_comment_youtube": "YouTubeタイル設定。isPremium を true に設定すると広告非表示最適化モードが有効になります。※iPadのSafariで一度 youtube.com にアクセスしてYouTube Premiumアカウントにログインしておくことで、埋め込みプレーヤーでも広告が排除されます。",
+  "youtube": {
+    "isPremium": true,
+    "genre": "all_mix",
+    "rotationSeconds": 180,
+    "customVideoIds": [
+      "WO-T3EPxTwQ",
+      "coYw-eVU0Ks",
+      "CmQi-BxdnSA",
+      "jfKfPfyJRdk",
+      "rUxyKA_-grg",
+      "1La4QzGeaaQ"
+    ]
+  }
+}

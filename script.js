@@ -11,6 +11,7 @@
 const CONFIG = {
   // 1. 天気予報設定 (現在地 & 品川区大崎駅周辺)
   weather: {
+    currentLocationName: "", // 空欄時はGPS・逆ジオコーディングで自動地名判別 (例: 品川区)
     // 品川区大崎駅周辺の座標 (緯度 35.6197, 経度 139.7285)
     locations: {
       osaki: { name: "品川区大崎", lat: 35.6197, lon: 139.7285 },
@@ -36,6 +37,7 @@ const CONFIG = {
 
   // 4. YouTubeタイル設定 (3分自動ローテーション・お好み動画)
   youtube: {
+    isPremium: true,       // YouTube Premium契約 (広告非表示・最適化モード)
     genre: "all_mix",      // デフォルト: 総合ミックス (ニュース・ウェザーニュース・アキバ・テック)
     customVideoIds: [],    // ユーザー指定のカスタム動画ID配列
     rotationSeconds: 180,  // 表示時間: 3分 (180秒)
@@ -53,11 +55,6 @@ const CONFIG = {
     // アキバ・自作PC・セール特価・ガジェット情報 (全記事に図・写真付属: ASCII.jp)
     akibaRssUrl: "https://ascii.jp/rss.xml",
     refreshIntervalMinutes: 15
-  },
-
-  // 6. Gemini Live (AI音声対話) 設定
-  gemini: {
-    apiKey: "" // Google AI StudioのAPIキー (設定モーダルから保存可能)
   }
 };
 
@@ -246,21 +243,79 @@ window.cancelClockTimer = cancelClockTimer;
 /* =========================================================
    2. 天気予報機能 (現在地 & 品川区大崎 / 現在・時間・週間天気)
    ========================================================= */
-// 端末の現在地(Geolocation)の解決
-function resolveCurrentLocation() {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) {
-      console.warn("Geolocation API未対応です。大崎駅をデフォルトにします。");
-      resolve();
-      return;
-    }
+// 逆ジオコーディング (緯度・経度から市区町村名を日本語で解決)
+async function reverseGeocode(lat, lon) {
+  try {
+    const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=ja`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
 
+    let place = "";
+    if (data.locality && data.city && data.city !== "東京都" && !data.city.includes("区")) {
+      place = data.city + data.locality;
+    } else if (data.locality) {
+      place = data.locality;
+    } else if (data.city) {
+      place = data.city;
+    } else if (data.principalSubdivision) {
+      place = data.principalSubdivision;
+    }
+    return place || null;
+  } catch (err) {
+    console.warn("逆ジオコーディング通信エラー:", err);
+    return null;
+  }
+}
+
+// 現在地の地名バッジ・タイトルを更新
+function updateWeatherLocationBadges(placeName) {
+  const badgeCurrent = document.getElementById("weather-loc-badge-current");
+  if (badgeCurrent && placeName) {
+    badgeCurrent.textContent = `📍 ${placeName}`;
+  }
+  const titleEl = document.getElementById("weather-tile-title");
+  if (titleEl && placeName) {
+    titleEl.textContent = `天気予報 (${placeName}・大崎)`;
+  }
+}
+
+// 端末の現在地(Geolocation)の解決 & 地名解決
+async function resolveCurrentLocation() {
+  // 1. ユーザー手動指定の地名があれば最優先で適用
+  if (CONFIG.weather.currentLocationName && CONFIG.weather.currentLocationName.trim()) {
+    const customName = CONFIG.weather.currentLocationName.trim();
+    CONFIG.weather.locations.current.name = customName;
+    updateWeatherLocationBadges(customName);
+  }
+
+  if (!navigator.geolocation) {
+    console.warn("Geolocation API未対応です。大崎駅をデフォルトにします。");
+    return;
+  }
+
+  return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        CONFIG.weather.locations.current.lat = pos.coords.latitude;
-        CONFIG.weather.locations.current.lon = pos.coords.longitude;
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        CONFIG.weather.locations.current.lat = lat;
+        CONFIG.weather.locations.current.lon = lon;
         CONFIG.weather.locations.current.isResolved = true;
-        console.log("現在地取得完了:", pos.coords.latitude, pos.coords.longitude);
+        console.log("現在地座標取得成功:", lat, lon);
+
+        // 手動指定がない場合は逆ジオコーディングで地名を特定
+        if (!CONFIG.weather.currentLocationName || !CONFIG.weather.currentLocationName.trim()) {
+          try {
+            const place = await reverseGeocode(lat, lon);
+            if (place) {
+              CONFIG.weather.locations.current.name = place;
+              updateWeatherLocationBadges(place);
+            }
+          } catch (e) {
+            console.warn("逆ジオコーディング処理例外:", e);
+          }
+        }
         resolve();
       },
       (err) => {
@@ -706,12 +761,14 @@ function getYtActivePool() {
 function updateYtGenreBadge() {
   const badge = document.getElementById("yt-genre-badge");
   if (!badge) return;
+  const isPrem = !!CONFIG.youtube.isPremium;
+  const premPrefix = isPrem ? "💎 " : "";
   if (CONFIG.youtube.customVideoIds && CONFIG.youtube.customVideoIds.length > 0) {
-    badge.textContent = "カスタムリスト";
+    badge.textContent = `${premPrefix}カスタムリスト`;
   } else {
     const genre = CONFIG.youtube.genre || "all_mix";
     const poolObj = YT_GENRE_POOLS[genre] || YT_GENRE_POOLS.all_mix;
-    badge.textContent = poolObj.label;
+    badge.textContent = `${premPrefix}${poolObj.label}`;
   }
 }
 
@@ -789,6 +846,11 @@ window.onYouTubeIframeAPIReady = function() {
     modestbranding: 1,
     enablejsapi: 1
   };
+
+  // YouTube Premium契約時の広告非表示・アノテーション最適化
+  if (CONFIG.youtube.isPremium) {
+    playerVars.iv_load_policy = 3;
+  }
 
   // オリジン設定 (iOS SafariおよびGitHub Pagesでの埋め込み拒否防止)
   if (window.location.origin && window.location.origin !== "null" && !window.location.origin.startsWith("file:")) {
@@ -1207,13 +1269,19 @@ function loadSavedSettings() {
       else if (saved.mapUrl) CONFIG.map.wifeEmbedUrl = saved.mapUrl; // 互換性
       if (saved.mapDaughterUrl) CONFIG.map.daughterEmbedUrl = saved.mapDaughterUrl;
 
+      // YouTube & Premium
+      if (typeof saved.youtubeIsPremium === "boolean") CONFIG.youtube.isPremium = saved.youtubeIsPremium;
+      else if (typeof saved.isPremium === "boolean") CONFIG.youtube.isPremium = saved.isPremium;
+
       if (saved.youtubeGenre) CONFIG.youtube.genre = saved.youtubeGenre;
       if (saved.youtubeCustomIds && Array.isArray(saved.youtubeCustomIds)) {
         CONFIG.youtube.customVideoIds = saved.youtubeCustomIds;
       }
+
+      // 天気
+      if (saved.currentLocationName) CONFIG.weather.currentLocationName = saved.currentLocationName;
       if (saved.weatherProvider) CONFIG.weather.provider = saved.weatherProvider;
       if (saved.openWeatherApiKey) CONFIG.weather.openWeatherApiKey = saved.openWeatherApiKey;
-      if (saved.geminiApiKey) CONFIG.gemini.apiKey = saved.geminiApiKey;
     }
   } catch (err) {
     console.warn("設定読み込みエラー:", err);
@@ -1230,24 +1298,88 @@ function initSettingsModal() {
   const inputCal = document.getElementById("cfg-calendar-url");
   const inputMapWife = document.getElementById("cfg-map-wife-url");
   const inputMapDaughter = document.getElementById("cfg-map-daughter-url");
+  const checkYtPremium = document.getElementById("cfg-youtube-premium");
   const selectYtGenre = document.getElementById("cfg-youtube-genre");
   const inputYtCustom = document.getElementById("cfg-youtube-custom-ids");
+  const inputLocName = document.getElementById("cfg-current-loc-name");
   const selectProvider = document.getElementById("cfg-weather-provider");
   const groupOwmKey = document.getElementById("group-owm-key");
   const inputOwmKey = document.getElementById("cfg-owm-key");
-  const inputGeminiKey = document.getElementById("cfg-gemini-key");
+
+  // JSONファイル読み込み・書き出し用要素
+  const fileInput = document.getElementById("cfg-file-import");
+  const btnFilePick = document.getElementById("btn-cfg-file-pick");
+  const btnFileExport = document.getElementById("btn-cfg-file-export");
+  const importStatus = document.getElementById("json-import-status");
+
+  // 1. JSONファイルインポート機能
+  if (btnFilePick && fileInput) {
+    btnFilePick.addEventListener("click", () => {
+      fileInput.value = "";
+      fileInput.click();
+    });
+
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      if (importStatus) {
+        importStatus.textContent = "ファイルを解析中...";
+        importStatus.style.color = "var(--accent-cyan)";
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const parsed = JSON.parse(event.target.result);
+          applyImportedJsonConfig(parsed);
+          if (importStatus) {
+            importStatus.textContent = "✅ 設定を正常に読み込みました！適用中...";
+            importStatus.style.color = "var(--accent-green)";
+          }
+          setTimeout(() => {
+            window.location.reload();
+          }, 800);
+        } catch (err) {
+          console.error("JSON読み込み失敗:", err);
+          if (importStatus) {
+            importStatus.textContent = `❌ JSON解析エラー: ${err.message}`;
+            importStatus.style.color = "var(--accent-red)";
+          }
+        }
+      };
+      reader.onerror = () => {
+        if (importStatus) {
+          importStatus.textContent = "❌ ファイル読み込み中にエラーが発生しました";
+          importStatus.style.color = "var(--accent-red)";
+        }
+      };
+      reader.readAsText(file, "UTF-8");
+    });
+  }
+
+  // 2. JSONエクスポート機能
+  if (btnFileExport) {
+    btnFileExport.addEventListener("click", () => {
+      exportCurrentConfigToJson();
+    });
+  }
 
   function openModal() {
-    inputCal.value = CONFIG.calendar.embedUrl || "";
+    if (inputCal) inputCal.value = CONFIG.calendar.embedUrl || "";
     if (inputMapWife) inputMapWife.value = CONFIG.map.wifeEmbedUrl || "";
     if (inputMapDaughter) inputMapDaughter.value = CONFIG.map.daughterEmbedUrl || "";
+    if (checkYtPremium) checkYtPremium.checked = !!CONFIG.youtube.isPremium;
     if (selectYtGenre) selectYtGenre.value = CONFIG.youtube.genre || "all_mix";
     if (inputYtCustom) inputYtCustom.value = (CONFIG.youtube.customVideoIds || []).join(", ");
-    selectProvider.value = CONFIG.weather.provider || "open-meteo";
-    inputOwmKey.value = (CONFIG.weather.openWeatherApiKey !== "YOUR_OPENWEATHER_API_KEY") ? (CONFIG.weather.openWeatherApiKey || "") : "";
-    if (inputGeminiKey) inputGeminiKey.value = CONFIG.gemini.apiKey || "";
-    
-    groupOwmKey.style.display = (selectProvider.value === "openweathermap") ? "flex" : "none";
+    if (inputLocName) inputLocName.value = CONFIG.weather.currentLocationName || "";
+    if (selectProvider) selectProvider.value = CONFIG.weather.provider || "open-meteo";
+    if (inputOwmKey) inputOwmKey.value = (CONFIG.weather.openWeatherApiKey !== "YOUR_OPENWEATHER_API_KEY") ? (CONFIG.weather.openWeatherApiKey || "") : "";
+    if (importStatus) importStatus.textContent = "";
+
+    if (groupOwmKey && selectProvider) {
+      groupOwmKey.style.display = (selectProvider.value === "openweathermap") ? "flex" : "none";
+    }
     modal.classList.add("active");
   }
 
@@ -1255,35 +1387,118 @@ function initSettingsModal() {
     modal.classList.remove("active");
   }
 
-  selectProvider.addEventListener("change", () => {
-    groupOwmKey.style.display = (selectProvider.value === "openweathermap") ? "flex" : "none";
-  });
+  if (selectProvider) {
+    selectProvider.addEventListener("change", () => {
+      if (groupOwmKey) {
+        groupOwmKey.style.display = (selectProvider.value === "openweathermap") ? "flex" : "none";
+      }
+    });
+  }
 
-  btnOpen.addEventListener("click", openModal);
-  btnClose.addEventListener("click", closeModal);
-  btnCancel.addEventListener("click", closeModal);
+  if (btnOpen) btnOpen.addEventListener("click", openModal);
+  if (btnClose) btnClose.addEventListener("click", closeModal);
+  if (btnCancel) btnCancel.addEventListener("click", closeModal);
 
-  btnSave.addEventListener("click", () => {
-    // カンマ区切りのカスタムIDを配列化
-    const rawCustom = inputYtCustom ? inputYtCustom.value.trim() : "";
-    const customList = rawCustom ? rawCustom.split(",").map(s => s.trim()).filter(s => s.length > 0) : [];
+  if (btnSave) {
+    btnSave.addEventListener("click", () => {
+      const rawCustom = inputYtCustom ? inputYtCustom.value.trim() : "";
+      const customList = rawCustom ? rawCustom.split(",").map(s => s.trim()).filter(s => s.length > 0) : [];
 
-    const newSettings = {
-      calendarUrl: inputCal.value.trim(),
-      mapWifeUrl: inputMapWife ? inputMapWife.value.trim() : "",
-      mapDaughterUrl: inputMapDaughter ? inputMapDaughter.value.trim() : "",
-      youtubeGenre: selectYtGenre ? selectYtGenre.value : "all_mix",
-      youtubeCustomIds: customList,
-      weatherProvider: selectProvider.value,
-      openWeatherApiKey: inputOwmKey.value.trim(),
-      geminiApiKey: inputGeminiKey ? inputGeminiKey.value.trim() : ""
-    };
+      const newSettings = {
+        calendarUrl: inputCal ? inputCal.value.trim() : "",
+        mapWifeUrl: inputMapWife ? inputMapWife.value.trim() : "",
+        mapDaughterUrl: inputMapDaughter ? inputMapDaughter.value.trim() : "",
+        youtubeIsPremium: checkYtPremium ? checkYtPremium.checked : true,
+        youtubeGenre: selectYtGenre ? selectYtGenre.value : "all_mix",
+        youtubeCustomIds: customList,
+        currentLocationName: inputLocName ? inputLocName.value.trim() : "",
+        weatherProvider: selectProvider ? selectProvider.value : "open-meteo",
+        openWeatherApiKey: inputOwmKey ? inputOwmKey.value.trim() : ""
+      };
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings));
-    closeModal();
-    // 設定変更を即座に反映するためリロード
-    window.location.reload();
-  });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings));
+      closeModal();
+      window.location.reload();
+    });
+  }
+}
+
+// 読み込んだJSONオブジェクトをlocalStorageの設定にマージ
+function applyImportedJsonConfig(parsed) {
+  if (!parsed || typeof parsed !== "object") return;
+  const currentSettings = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+
+  // カレンダー
+  if (parsed.calendar && parsed.calendar.embedUrl) currentSettings.calendarUrl = parsed.calendar.embedUrl;
+  else if (parsed.calendarUrl) currentSettings.calendarUrl = parsed.calendarUrl;
+
+  // マップ
+  if (parsed.map) {
+    if (parsed.map.wifeEmbedUrl) currentSettings.mapWifeUrl = parsed.map.wifeEmbedUrl;
+    if (parsed.map.daughterEmbedUrl) currentSettings.mapDaughterUrl = parsed.map.daughterEmbedUrl;
+  }
+  if (parsed.mapWifeUrl) currentSettings.mapWifeUrl = parsed.mapWifeUrl;
+  if (parsed.mapDaughterUrl) currentSettings.mapDaughterUrl = parsed.mapDaughterUrl;
+
+  // YouTube & Premium
+  if (parsed.youtube) {
+    if (typeof parsed.youtube.isPremium === "boolean") currentSettings.youtubeIsPremium = parsed.youtube.isPremium;
+    if (parsed.youtube.genre) currentSettings.youtubeGenre = parsed.youtube.genre;
+    if (Array.isArray(parsed.youtube.customVideoIds)) currentSettings.youtubeCustomIds = parsed.youtube.customVideoIds;
+  }
+  if (typeof parsed.youtubeIsPremium === "boolean") currentSettings.youtubeIsPremium = parsed.youtubeIsPremium;
+  if (typeof parsed.isPremium === "boolean") currentSettings.youtubeIsPremium = parsed.isPremium;
+  if (parsed.youtubeGenre) currentSettings.youtubeGenre = parsed.youtubeGenre;
+  if (Array.isArray(parsed.youtubeCustomIds)) currentSettings.youtubeCustomIds = parsed.youtubeCustomIds;
+
+  // 天気
+  if (parsed.weather) {
+    if (parsed.weather.currentLocationName !== undefined) currentSettings.currentLocationName = parsed.weather.currentLocationName;
+    if (parsed.weather.provider) currentSettings.weatherProvider = parsed.weather.provider;
+    if (parsed.weather.openWeatherApiKey) currentSettings.openWeatherApiKey = parsed.weather.openWeatherApiKey;
+  }
+  if (parsed.currentLocationName !== undefined) currentSettings.currentLocationName = parsed.currentLocationName;
+  if (parsed.weatherProvider) currentSettings.weatherProvider = parsed.weatherProvider;
+  if (parsed.openWeatherApiKey) currentSettings.openWeatherApiKey = parsed.openWeatherApiKey;
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(currentSettings));
+}
+
+// 現在の設定をJSONファイルとしてダウンロード書き出し
+function exportCurrentConfigToJson() {
+  const exportData = {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    title: "Smart Digital Signage Configuration",
+    exportedAt: new Date().toISOString(),
+    calendar: {
+      embedUrl: CONFIG.calendar.embedUrl || ""
+    },
+    map: {
+      wifeEmbedUrl: CONFIG.map.wifeEmbedUrl || "",
+      daughterEmbedUrl: CONFIG.map.daughterEmbedUrl || ""
+    },
+    weather: {
+      currentLocationName: CONFIG.weather.currentLocationName || "",
+      provider: CONFIG.weather.provider || "open-meteo",
+      openWeatherApiKey: (CONFIG.weather.openWeatherApiKey !== "YOUR_OPENWEATHER_API_KEY") ? (CONFIG.weather.openWeatherApiKey || "") : ""
+    },
+    youtube: {
+      isPremium: !!CONFIG.youtube.isPremium,
+      genre: CONFIG.youtube.genre || "all_mix",
+      rotationSeconds: CONFIG.youtube.rotationSeconds || 180,
+      customVideoIds: CONFIG.youtube.customVideoIds || []
+    }
+  };
+
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `signage-config-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 
@@ -1356,211 +1571,6 @@ function parseTimerCommand(text) {
 window.parseTimerCommand = parseTimerCommand;
 
 /* =========================================================
-   8. Gemini Live (AI音声対話 & ライブオーブ) コントローラ
-   ========================================================= */
-function initGeminiLive() {
-  const orbBtn = document.getElementById("gemini-orb-btn");
-  const statusBadge = document.getElementById("gemini-status");
-  const transcriptEl = document.getElementById("gemini-transcript");
-  
-  // フルスクリーン用要素
-  const btnExpand = document.getElementById("btn-gemini-expand");
-  const fsModal = document.getElementById("gemini-fullscreen-modal");
-  const btnFsClose = document.getElementById("btn-gemini-fs-close");
-  const fsOrbBtn = document.getElementById("gemini-fs-orb-btn");
-  const fsStatusText = document.getElementById("gemini-fs-status-text");
-  const fsChatLog = document.getElementById("gemini-fs-chat-log");
-
-  // フルスクリーン開閉
-  if (btnExpand && fsModal) {
-    btnExpand.addEventListener("click", () => fsModal.classList.add("active"));
-  }
-  if (btnFsClose && fsModal) {
-    btnFsClose.addEventListener("click", () => fsModal.classList.remove("active"));
-  }
-
-  // Web Speech API (音声認識) のサポート確認
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let recognition = null;
-  let isListening = false;
-
-  if (SpeechRecognition) {
-    recognition = new SpeechRecognition();
-    recognition.lang = "ja-JP";
-    recognition.continuous = false;
-    recognition.interimResults = false;
-
-    recognition.onstart = () => {
-      isListening = true;
-      updateLiveState("listening", "聞き取り中...");
-    };
-
-    recognition.onresult = async (event) => {
-      const speechText = event.results[0][0].transcript;
-      console.log("認識した音声:", speechText);
-      updateLiveState("thinking", "考え中...");
-      appendChat("user", speechText);
-
-      // タイマー音声コマンドの優先検出・実行
-      const timerCmd = parseTimerCommand(speechText);
-      if (timerCmd) {
-        if (timerCmd.action === "cancel") {
-          cancelClockTimer();
-          const reply = "タイマーを停止・解除しました。";
-          appendChat("gemini", reply);
-          updateLiveState("ready", "完了");
-          speakText(reply);
-          return;
-        } else if (timerCmd.action === "start") {
-          startClockTimer(timerCmd.seconds, timerCmd.label);
-          const reply = `${timerCmd.label}のタイマーをセットしました。現在時刻パネルでカウントダウンを開始します。`;
-          appendChat("gemini", reply);
-          updateLiveState("ready", "完了");
-          speakText(reply);
-          return;
-        }
-      }
-
-      // Gemini API または ローカルフォールバックで回答生成
-      const reply = await queryGeminiOrLocal(speechText);
-      appendChat("gemini", reply);
-      updateLiveState("ready", "完了");
-
-      // 音声読み上げ
-      speakText(reply);
-    };
-
-    recognition.onerror = (e) => {
-      console.warn("音声認識エラー:", e.error);
-      isListening = false;
-      updateLiveState("ready", "タップして話す");
-    };
-
-    recognition.onend = () => {
-      isListening = false;
-    };
-  }
-
-  function startListening() {
-    if (!SpeechRecognition) {
-      alert("お使いのブラウザは音声認識機能に対応していません。iOS SafariやChromeをご利用ください。");
-      return;
-    }
-    if (isListening) {
-      recognition.stop();
-      isListening = false;
-      updateLiveState("ready", "待機中");
-      return;
-    }
-    try {
-      recognition.start();
-    } catch (err) {
-      console.warn("認識開始エラー:", err);
-    }
-  }
-
-  if (orbBtn) orbBtn.addEventListener("click", startListening);
-  if (fsOrbBtn) fsOrbBtn.addEventListener("click", startListening);
-
-  function updateLiveState(state, text) {
-    if (statusBadge) statusBadge.textContent = state === "listening" ? "Listening" : (state === "thinking" ? "Thinking" : "Ready");
-    if (transcriptEl) transcriptEl.textContent = text;
-    if (fsStatusText) fsStatusText.textContent = text;
-
-    if (state === "listening") {
-      orbBtn?.classList.add("listening");
-      fsOrbBtn?.classList.add("listening");
-    } else {
-      orbBtn?.classList.remove("listening");
-      fsOrbBtn?.classList.remove("listening");
-    }
-  }
-
-  function appendChat(role, message) {
-    if (transcriptEl) transcriptEl.textContent = message;
-    if (fsChatLog) {
-      const bubble = document.createElement("div");
-      bubble.className = `chat-bubble ${role}`;
-      bubble.textContent = message;
-      fsChatLog.appendChild(bubble);
-      fsChatLog.scrollTop = fsChatLog.scrollHeight;
-    }
-  }
-
-  // Gemini APIへの問い合わせ (APIキーがあれば本物、なければローカル回答)
-  async function queryGeminiOrLocal(userPrompt) {
-    // タイマー設定の判定
-    const timerCmd = parseTimerCommand(userPrompt);
-    if (timerCmd) {
-      if (timerCmd.action === "cancel") {
-        cancelClockTimer();
-        return "タイマーを停止・解除しました。";
-      } else if (timerCmd.action === "start") {
-        startClockTimer(timerCmd.seconds, timerCmd.label);
-        return `${timerCmd.label}のタイマーをセットしました。現在時刻パネルでカウントダウンを開始します。`;
-      }
-    }
-
-    const apiKey = CONFIG.gemini.apiKey;
-
-    if (apiKey && apiKey.trim() !== "") {
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-        const body = {
-          contents: [{
-            parts: [{
-              text: `あなたはスマートホームサイネージのAIアシスタント「Gemini」です。ユーザーからの質問に、親しみやすく簡潔に（2〜3文以内で）日本語で音声向けに答えてください。タイマー設定や時計、天気、カレンダー案内などのスマートホーム機能を持っています。\nユーザー: ${userPrompt}`
-            }]
-          }]
-        };
-
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body)
-        });
-
-        if (!res.ok) throw new Error(`Gemini API Error: ${res.status}`);
-        const data = await res.json();
-        return data.candidates[0].content.parts[0].text;
-      } catch (err) {
-        console.error("Gemini API呼び出し失敗:", err);
-      }
-    }
-
-    // APIキー未設定時またはエラー時のローカルフォールバック
-    const lower = userPrompt.toLowerCase();
-    const now = new Date();
-
-    if (lower.includes("時間") || lower.includes("何時") || lower.includes("いま")) {
-      return `現在の時刻は ${now.getHours()}時${now.getMinutes()}分です。`;
-    }
-    if (lower.includes("天気") || lower.includes("雨") || lower.includes("気温")) {
-      const tempCurrent = document.getElementById("weather-temp-current")?.textContent || "約20°C";
-      const descCurrent = document.getElementById("weather-desc-current")?.textContent || "晴れ";
-      const tempOsaki = document.getElementById("weather-temp-osaki")?.textContent || "約20°C";
-      const descOsaki = document.getElementById("weather-desc-osaki")?.textContent || "晴れ";
-      return `現在地の天気は${descCurrent}で気温は${tempCurrent}、品川区大崎は${descOsaki}で${tempOsaki}です。時間予報や警報も画面の天気タイルでご確認いただけます。`;
-    }
-    if (lower.includes("予定") || lower.includes("カレンダー")) {
-      return "右上のカレンダータイルに直近の予定が表示されています。";
-    }
-    return `「${userPrompt}」ですね。Gemini APIキーを設定するとより詳細にお答えできます！`;
-  }
-
-  // 音声読み上げ
-  function speakText(text) {
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel(); // 既存再生を停止
-    const uttr = new SpeechSynthesisUtterance(text);
-    uttr.lang = "ja-JP";
-    uttr.rate = 1.05;
-    window.speechSynthesis.speak(uttr);
-  }
-}
-
-
-/* =========================================================
    アプリケーション初期化
    ========================================================= */
 document.addEventListener("DOMContentLoaded", async () => {
@@ -1616,9 +1626,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // 5. 設定モーダル初期化
   initSettingsModal();
-
-  // 6. Gemini Live 初期化
-  initGeminiLive();
 });
 
 

@@ -48,7 +48,7 @@
     <!-- タイル2: 天気予報 (現在地 & 大崎駅の上下2分割同時表示) -->
     <section class="tile tile-weather" id="tile-weather">
       <div class="tile-header">
-        <span class="tile-title">天気予報 (現在地・大崎)</span>
+        <span class="tile-title" id="weather-tile-title">天気予報 (現在地・大崎)</span>
         <span class="update-badge" id="weather-updated-main">2拠点同時監視中</span>
       </div>
 
@@ -56,7 +56,7 @@
         <!-- 上段: 現在地ペイン -->
         <div class="weather-pane" id="pane-weather-current">
           <div class="weather-pane-header">
-            <div class="weather-loc-badge badge-current">📍 現在地</div>
+            <div class="weather-loc-badge badge-current" id="weather-loc-badge-current">📍 現在地</div>
             <span class="pane-updated-badge" id="weather-updated-current">更新中...</span>
           </div>
 
@@ -169,34 +169,6 @@
             <p>GoogleカレンダーのURLを設定してください</p>
             <small>※右上の⚙️から登録できます</small>
           </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- タイル: Gemini Live (AI音声対話 & ライブオーブ) -->
-    <section class="tile tile-gemini" id="tile-gemini">
-      <div class="tile-header">
-        <div class="header-left">
-          <span class="tile-title gemini-title">✨ Gemini Live</span>
-          <span class="gemini-status-badge" id="gemini-status">Ready</span>
-        </div>
-        <div class="gemini-header-actions">
-          <a href="https://gemini.google.com/live" target="_blank" class="gemini-external-link" title="公式Gemini Liveを開く">公式開く ↗</a>
-          <button id="btn-gemini-expand" class="btn-icon" title="全画面で開く">⛶</button>
-        </div>
-      </div>
-      <div class="gemini-body">
-        <div class="gemini-orb-container" id="gemini-orb-btn" title="タップしてGemini Liveと話す">
-          <div class="gemini-orb">
-            <div class="orb-core"></div>
-            <div class="orb-glow-1"></div>
-            <div class="orb-glow-2"></div>
-            <div class="orb-glow-3"></div>
-          </div>
-          <div class="gemini-mic-icon">🎙️</div>
-        </div>
-        <div class="gemini-speech-box">
-          <div class="gemini-message" id="gemini-transcript">「タップして話しかけてください」</div>
         </div>
       </div>
     </section>
@@ -319,6 +291,20 @@
         <button class="modal-close" id="btn-settings-close">&times;</button>
       </div>
       <div class="modal-body">
+        <!-- 設定ファイル(JSON)の一括読み込み・書き出しボックス -->
+        <div class="settings-json-box">
+          <div class="json-box-title">📁 設定ファイル (JSON) の一括読み込み / 書き出し</div>
+          <p class="json-box-desc">
+            PC等で <code>config.sample.json</code> を編集し、AirDropやクラウド等でiPadに転送した設定ファイルを1タップで一括読み込めます。
+          </p>
+          <div class="json-btn-row">
+            <input type="file" id="cfg-file-import" accept=".json,application/json" style="display: none;">
+            <button type="button" class="btn btn-json-import" id="btn-cfg-file-pick">📂 設定JSONファイルを読み込む</button>
+            <button type="button" class="btn btn-json-export" id="btn-cfg-file-export">💾 現在の設定をJSON書き出し</button>
+          </div>
+          <div class="json-import-status" id="json-import-status"></div>
+        </div>
+
         <p class="modal-tip">
           💡 <strong>安心設計:</strong> ここに入力した個人情報やURLは、GitHub等には送信されず、<strong>このiPadのブラウザ内（端末内）にのみ安全に保存</strong>されます。
         </p>
@@ -341,6 +327,14 @@
           <small>Googleマップの現在地共有リンクまたはiframe用埋め込みURL</small>
         </div>
 
+        <div class="form-group form-checkbox-group">
+          <label class="checkbox-label" for="cfg-youtube-premium">
+            <input type="checkbox" id="cfg-youtube-premium">
+            <span>💎 YouTube Premium契約 (広告非表示・最適化モード)</span>
+          </label>
+          <small>※有効にすると広告非表示パラメータを適用します。iPad Safariでyoutube.comにログイン済みの場合、iframe埋め込みでも広告が排除されます。</small>
+        </div>
+
         <div class="form-group">
           <label for="cfg-youtube-genre">YouTube お好みの動画ジャンル</label>
           <select id="cfg-youtube-genre">
@@ -361,6 +355,12 @@
         </div>
 
         <div class="form-group">
+          <label for="cfg-current-loc-name">天気予報 現在地の手動指定 (任意)</label>
+          <input type="text" id="cfg-current-loc-name" placeholder="空欄時はGPSから自動判別 (例: 品川区, 横浜市中区)">
+          <small>※通常は空欄で自動取得されます。地名を特定・固定したい場合のみ入力してください</small>
+        </div>
+
+        <div class="form-group">
           <label for="cfg-weather-provider">天気予報プロバイダ</label>
           <select id="cfg-weather-provider">
             <option value="open-meteo">Open-Meteo (APIキー不要・秋葉原)</option>
@@ -372,41 +372,10 @@
           <label for="cfg-owm-key">OpenWeatherMap APIキー</label>
           <input type="password" id="cfg-owm-key" placeholder="APIキーを入力">
         </div>
-
-        <div class="form-group">
-          <label for="cfg-gemini-key">Gemini APIキー (Google AI Studio / 任意)</label>
-          <input type="password" id="cfg-gemini-key" placeholder="AIzaSy... (設定するとGemini 2.0 Flashと直接対話可能)">
-          <small>※未設定でもローカル対話・音声認識および公式Gemini Live連携がご利用いただけます</small>
-        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" id="btn-settings-cancel">キャンセル</button>
         <button class="btn btn-primary" id="btn-settings-save">設定を保存して反映</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Gemini Live フルスクリーン対話オーバーレイ -->
-  <div class="gemini-fullscreen-overlay" id="gemini-fullscreen-modal">
-    <div class="gemini-fs-header">
-      <div class="gemini-fs-title">✨ Gemini Live</div>
-      <div class="gemini-fs-controls">
-        <a href="https://gemini.google.com/live" target="_blank" class="gemini-external-link fs-ext-link">公式Geminiを開く ↗</a>
-        <button class="modal-close" id="btn-gemini-fs-close">&times;</button>
-      </div>
-    </div>
-    <div class="gemini-fs-body">
-      <div class="gemini-fs-orb-wrap" id="gemini-fs-orb-btn">
-        <div class="gemini-orb fs-orb">
-          <div class="orb-core"></div>
-          <div class="orb-glow-1"></div>
-          <div class="orb-glow-2"></div>
-          <div class="orb-glow-3"></div>
-        </div>
-      </div>
-      <div class="gemini-fs-status" id="gemini-fs-status-text">タップして話しかけてください</div>
-      <div class="gemini-fs-conversation" id="gemini-fs-chat-log">
-        <div class="chat-bubble gemini">こんにちは！Gemini Liveです。何かお手伝いしましょうか？</div>
       </div>
     </div>
   </div>
