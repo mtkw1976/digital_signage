@@ -1016,8 +1016,8 @@ function renderNewsChannel(listElementId, featuredElementId, items, channelType)
     return;
   }
 
-  // 1. 上部: 3つの最新記事リスト (右側にコンパクトなサムネイル)
-  const listItems = items.slice(0, 3);
+  // 1. 左側: 5つの最新記事リスト (右側にコンパクトなサムネイル)
+  const listItems = items.slice(0, 5);
   listEl.innerHTML = listItems.map((item, idx) => {
     const url = item.link && item.link !== "#" ? escapeHtml(item.link) : "https://www.gizmodo.jp/";
     return `
@@ -1041,21 +1041,22 @@ function renderNewsChannel(listElementId, featuredElementId, items, channelType)
     `;
   }).join("");
 
-  // 2. 下部空き領域: 現在選択中の記事の大きな図＋要約サマリーを表示
+  // 2. 右側領域: 現在選択中の記事の大きな図＋要約サマリーを表示
   updateFeaturedDisplay(channelType, featuredIndices[channelType]);
 }
 
-// 下部注目ボックスの要約・大きな図の更新と、上部3件リストのアクティブ同期
+// 右側注目ボックスの要約・大きな図の更新と、左側リストのアクティブ同期
 function updateFeaturedDisplay(channelType, index) {
   const items = newsFeedsData[channelType];
   if (!items || items.length === 0) return;
 
-  const validIndex = index % Math.min(3, items.length);
+  const maxCount = Math.min(5, items.length);
+  const validIndex = index % maxCount;
   featuredIndices[channelType] = validIndex;
   const featuredItem = items[validIndex];
 
-  // 上部リストのアクティブハイライト更新
-  for (let i = 0; i < 3; i++) {
+  // 左側リストのアクティブハイライト更新 (最大5件)
+  for (let i = 0; i < maxCount; i++) {
     const itemEl = document.getElementById(`${channelType}-item-${i}`);
     if (itemEl) {
       if (i === validIndex) {
@@ -1066,7 +1067,7 @@ function updateFeaturedDisplay(channelType, index) {
     }
   }
 
-  // 下部ボックスの更新
+  // 右側ボックスの更新
   const featuredEl = document.getElementById(`${channelType}-featured-box`);
   if (!featuredEl || !featuredItem) return;
 
@@ -1090,20 +1091,20 @@ function updateFeaturedDisplay(channelType, index) {
   `;
 }
 
-// ユーザーが上部リストの記事をクリックした時の処理 (要約切り替え)
+// ユーザーが左側リストの記事をクリックした時の処理 (要約切り替え)
 window.onNewsItemClick = function(channelType, index, event) {
-  // リンク先への遷移も許可しつつ、下部の要約も即時その記事に切り替える
+  // リンク先への遷移も許可しつつ、右側の要約も即時その記事に切り替える
   updateFeaturedDisplay(channelType, index);
 };
 
-// 下部要約＋大きな図の自動ローテーション (6秒ごとに3つの記事を順番に巡回)
+// 右側要約＋大きな図の自動ローテーション (6秒ごとに5つの記事を順番に巡回)
 function initFeaturedRotation() {
   if (featuredRotateTimer) clearInterval(featuredRotateTimer);
 
   featuredRotateTimer = setInterval(() => {
     const items = newsFeedsData[currentNewsPane];
     if (items && items.length > 0) {
-      const maxCount = Math.min(3, items.length);
+      const maxCount = Math.min(5, items.length);
       const nextIdx = (featuredIndices[currentNewsPane] + 1) % maxCount;
       updateFeaturedDisplay(currentNewsPane, nextIdx);
     }
@@ -1150,6 +1151,14 @@ async function loadFeeds() {
         time: "最新",
         thumbUrl: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=240&auto=format&fit=crop&q=80",
         summary: "Googleの最新生成AIとスマート家電が直接連携。音声による複雑な自動化ルーティンが自然な会話で実現します。"
+      },
+      { 
+        title: "超薄型OLED採用の次世代スマートポータブルディスプレイが発表", 
+        source: "新製品", 
+        link: "https://www.gizmodo.jp/", 
+        time: "最新",
+        thumbUrl: "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=240&auto=format&fit=crop&q=80",
+        summary: "高コントラストで省電力な有機ELパネルを搭載した最新モバイルモニター。iPadやPCのサブディスプレイとして極めて高い実用性を誇ります。"
       }
     ], "yahoo");
   }
@@ -1192,6 +1201,14 @@ async function loadFeeds() {
         time: "注目",
         thumbUrl: "https://images.unsplash.com/photo-1544652478-6653e09f18a2?w=240&auto=format&fit=crop&q=80",
         summary: "中古スマホ、液晶モニター、掘り出し物ジャンクPCパーツのセール情報を一挙紹介。秋葉原巡りの前に要チェックです。"
+      },
+      { 
+        title: "自作PC用高速DDR5メモリ＆水冷CPUクーラーの店頭タイムセール", 
+        source: "パーツ特価", 
+        link: "https://ascii.jp/", 
+        time: "タイムセール",
+        thumbUrl: "https://images.unsplash.com/photo-1587202372634-32705e3bf49c?w=240&auto=format&fit=crop&q=80",
+        summary: "冷却性能抜群の360mm簡易水冷キットとRGBライティング対応DDR5メモリが限定数特価で登場。週末の自作アップグレードに最適です。"
       }
     ], "akiba");
   }
