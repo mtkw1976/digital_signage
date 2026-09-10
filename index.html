@@ -19,27 +19,52 @@
 </head>
 <body>
   <div class="dashboard-container">
-    <!-- タイル1: 時計・日付 -->
-    <section class="tile tile-clock" id="tile-clock">
+    <!-- タイル1: 時計 & スケジュール (カレンダー統合) -->
+    <section class="tile tile-clock-schedule" id="tile-clock-schedule">
       <div class="tile-header">
         <div class="header-left">
-          <span class="tile-title">現在時刻</span>
+          <span class="tile-title">現在時刻 & 予定</span>
           <span class="live-dot"></span>
         </div>
-        <button id="btn-settings-open" class="btn-icon" title="設定を開く">⚙️</button>
+        <div class="header-right-actions">
+          <a href="https://calendar.google.com" target="_blank" rel="noopener noreferrer" class="calendar-external-btn" id="btn-calendar-external" title="Googleカレンダーを直接開く">予定 ↗</a>
+          <button id="btn-settings-open" class="btn-icon" title="設定を開く">⚙️</button>
+        </div>
       </div>
-      <div class="clock-body">
-        <div class="date-display" id="date-display">----年--月--日 (--)</div>
-        <div class="time-display" id="time-display"><span id="hours-minutes-display">--:--</span><span class="seconds-display" id="seconds-display">--</span></div>
-        <!-- GeminiLive連動 タイマーカウントダウン表示領域 -->
-        <div class="clock-timer-banner hidden" id="clock-timer-banner">
-          <div class="timer-banner-inner">
-            <span class="timer-icon-badge">⏱ タイマー</span>
-            <span class="timer-countdown" id="clock-timer-countdown">03:00</span>
-            <button class="timer-cancel-btn" id="btn-clock-timer-cancel" title="タイマーをキャンセル">✕</button>
+      <div class="clock-schedule-body">
+        <!-- 上部: 時計・日付・タイマー -->
+        <div class="clock-compact-wrap">
+          <div class="date-display" id="date-display">----年--月--日 (--)</div>
+          <div class="time-display" id="time-display"><span id="hours-minutes-display">--:--</span><span class="seconds-display" id="seconds-display">--</span></div>
+          <!-- GeminiLive連動 タイマーカウントダウン表示領域 -->
+          <div class="clock-timer-banner hidden" id="clock-timer-banner">
+            <div class="timer-banner-inner">
+              <span class="timer-icon-badge">⏱ タイマー</span>
+              <span class="timer-countdown" id="clock-timer-countdown">03:00</span>
+              <button class="timer-cancel-btn" id="btn-clock-timer-cancel" title="タイマーをキャンセル">✕</button>
+            </div>
+            <div class="timer-progress-bar-bg">
+              <div class="timer-progress-bar" id="clock-timer-progress"></div>
+            </div>
           </div>
-          <div class="timer-progress-bar-bg">
-            <div class="timer-progress-bar" id="clock-timer-progress"></div>
+        </div>
+
+        <!-- 下部: Googleカレンダー埋め込み -->
+        <div class="schedule-compact-wrap">
+          <iframe 
+            id="calendar-iframe" 
+            src="about:blank" 
+            class="embedded-iframe calendar-frame" 
+            frameborder="0" 
+            scrolling="no"
+            allow="storage-access *">
+          </iframe>
+          <div class="placeholder-overlay" id="calendar-placeholder">
+            <div class="placeholder-content">
+              <span class="placeholder-icon">📅</span>
+              <p>GoogleカレンダーのURLを設定してください</p>
+              <small>※右上の⚙️から登録できます</small>
+            </div>
           </div>
         </div>
       </div>
@@ -149,134 +174,72 @@
       </div>
     </section>
 
-    <!-- タイル3: Googleカレンダー -->
-    <section class="tile tile-calendar" id="tile-calendar">
+    <!-- タイル3: Googleマップ (現在位置の単一表示) -->
+    <section class="tile tile-map" id="tile-map">
       <div class="tile-header">
-        <div class="calendar-header-left">
-          <span class="tile-title">スケジュール (カレンダー)</span>
+        <div class="header-left">
+          <span class="tile-title">現在位置マップ</span>
+          <span class="map-loc-name-badge" id="map-loc-name-badge">📍 現在地</span>
         </div>
-        <a href="https://calendar.google.com" target="_blank" rel="noopener noreferrer" class="calendar-external-btn" id="btn-calendar-external" title="Googleカレンダーを直接開く">カレンダーを開く ↗</a>
+        <div class="header-right-actions">
+          <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" class="map-open-link" id="map-open-link-current">Googleマップで開く ↗</a>
+        </div>
       </div>
-      <div class="calendar-body">
-        <!-- Googleカレンダーの埋め込みiframeまたはAPI連携用領域 -->
+      <div class="map-body">
         <iframe 
-          id="calendar-iframe" 
+          id="map-iframe-current" 
           src="about:blank" 
           class="embedded-iframe" 
           frameborder="0" 
-          scrolling="no"
-          allow="storage-access *">
+          allowfullscreen>
         </iframe>
-        <div class="placeholder-overlay" id="calendar-placeholder">
+        <!-- リアルタイム共有リンク用カード (Googleによるiframeブロック時の安全表示) -->
+        <div class="map-live-card hidden" id="map-live-card-current">
+          <div class="map-live-info">
+            <div class="map-live-status">
+              <span class="live-pulse-dot"></span>
+              <span>現在地マップ 連携中</span>
+            </div>
+            <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" class="btn-map-launch" id="btn-map-launch-current">
+              🗺️ 現在地をGoogleマップで確認 ↗
+            </a>
+            <div class="map-live-note">
+              タップするとGoogleマップアプリまたはブラウザで現在位置を確認できます
+            </div>
+          </div>
+        </div>
+        <div class="placeholder-overlay" id="map-placeholder-current">
           <div class="placeholder-content">
-            <span class="placeholder-icon">📅</span>
-            <p>GoogleカレンダーのURLを設定してください</p>
-            <small>※右上の⚙️から登録できます</small>
+            <span class="placeholder-icon">📍</span>
+            <p id="map-placeholder-text">現在地マップを取得中...</p>
+            <small>※位置情報が許可されているかご確認ください</small>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- タイル4: Googleマップ (妻 & 娘の上下2分割位置情報) -->
-    <section class="tile tile-map" id="tile-map">
-      <div class="tile-header">
-        <span class="tile-title">位置情報 (妻・娘)</span>
-      </div>
-      <div class="map-split-container">
-        <!-- 上段: 妻の位置情報 -->
-        <div class="map-split-item" id="map-split-item-wife">
-          <div class="map-item-header">
-            <div class="map-person-badge">👩 妻</div>
-            <a href="#" target="_blank" rel="noopener noreferrer" class="map-open-link" id="map-open-link-wife" style="display: none;">Googleマップで開く ↗</a>
-          </div>
-          <iframe 
-            id="map-iframe-wife" 
-            src="about:blank" 
-            class="embedded-iframe" 
-            frameborder="0" 
-            allowfullscreen>
-          </iframe>
-          <!-- リアルタイム共有リンク用カード (Googleによるiframeブロック時の安全表示) -->
-          <div class="map-live-card hidden" id="map-live-card-wife">
-            <div class="map-live-info">
-              <div class="map-live-status">
-                <span class="live-pulse-dot"></span>
-                <span>リアルタイム位置情報 連携中</span>
-              </div>
-              <a href="#" target="_blank" rel="noopener noreferrer" class="btn-map-launch">
-                🗺️ 👩 妻の現在地をGoogleマップで確認 ↗
-              </a>
-              <div class="map-live-note">
-                タップするとGoogleマップアプリまたはSafariでリアルタイム位置を確認できます
-              </div>
-            </div>
-          </div>
-          <div class="placeholder-overlay" id="map-placeholder-wife">
-            <div class="placeholder-content">
-              <span class="placeholder-icon">📍</span>
-              <p>妻の位置情報URLを設定</p>
-              <small>※右上の⚙️から登録できます</small>
-            </div>
-          </div>
-        </div>
-
-        <!-- 下段: 娘の位置情報 -->
-        <div class="map-split-item" id="map-split-item-daughter">
-          <div class="map-item-header">
-            <div class="map-person-badge">👧 娘</div>
-            <a href="#" target="_blank" rel="noopener noreferrer" class="map-open-link" id="map-open-link-daughter" style="display: none;">Googleマップで開く ↗</a>
-          </div>
-          <iframe 
-            id="map-iframe-daughter" 
-            src="about:blank" 
-            class="embedded-iframe" 
-            frameborder="0" 
-            allowfullscreen>
-          </iframe>
-          <!-- リアルタイム共有リンク用カード (Googleによるiframeブロック時の安全表示) -->
-          <div class="map-live-card hidden" id="map-live-card-daughter">
-            <div class="map-live-info">
-              <div class="map-live-status">
-                <span class="live-pulse-dot"></span>
-                <span>リアルタイム位置情報 連携中</span>
-              </div>
-              <a href="#" target="_blank" rel="noopener noreferrer" class="btn-map-launch">
-                🗺️ 👧 娘の現在地をGoogleマップで確認 ↗
-              </a>
-              <div class="map-live-note">
-                タップするとGoogleマップアプリまたはSafariでリアルタイム位置を確認できます
-              </div>
-            </div>
-          </div>
-          <div class="placeholder-overlay" id="map-placeholder-daughter">
-            <div class="placeholder-content">
-              <span class="placeholder-icon">📍</span>
-              <p>娘の位置情報URLを設定</p>
-              <small>※右上の⚙️から登録できます</small>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- タイル5: YouTube (3分自動ローテーション・おすすめ動画) -->
+    <!-- タイル4: YouTube (おすすめ動画 & ウェザーニュース最新Live) -->
     <section class="tile tile-youtube" id="tile-youtube">
       <div class="tile-header">
         <div class="yt-header-left">
           <span class="tile-title">YouTube</span>
-          <span class="yt-genre-badge" id="yt-genre-badge">アキバ・ガジェット</span>
+          <div class="yt-mode-selector">
+            <button class="yt-mode-btn active" id="btn-yt-mode-weather" title="ウェザーニュース最新Liveを再生">🔴 天気Live</button>
+            <button class="yt-mode-btn" id="btn-yt-mode-recommend" title="おすすめ動画をローテーション再生">✨ おすすめ</button>
+          </div>
+          <span class="yt-genre-badge" id="yt-genre-badge">ウェザーニュース Live</span>
           <span class="yt-account-badge" id="yt-account-badge" style="display: none;">💎 Premium</span>
         </div>
         <div class="yt-header-controls">
           <a href="https://accounts.google.com/ServiceLogin?service=youtube&continue=https%3A%2F%2Fwww.youtube.com" target="_blank" rel="noopener noreferrer" class="yt-login-btn" id="btn-yt-login" title="YouTube Premiumアカウントでログイン">ログイン ↗</a>
-          <div class="yt-timer-wrap" title="3分で次の動画に切り替わります">
+          <div class="yt-timer-wrap" id="yt-timer-wrap" title="3分で次の動画に切り替わります">
             <span class="yt-timer-icon">⏱</span>
             <span class="yt-timer-text" id="yt-timer-text">3:00</span>
             <div class="yt-timer-bar-bg">
               <div class="yt-timer-bar" id="yt-timer-bar"></div>
             </div>
           </div>
-          <button id="btn-yt-skip" class="yt-skip-btn" title="次の動画へスキップ">次の動画 ⏭</button>
+          <button id="btn-yt-skip" class="yt-skip-btn" title="次の動画へスキップ">次へ ⏭</button>
         </div>
       </div>
       <div class="youtube-body">
@@ -287,39 +250,79 @@
       </div>
     </section>
 
-    <!-- タイル6: Yahoo!ニュース & アキバ特価情報 (自動ローテーション) -->
+    <!-- タイル5: X (旧Twitter) パネル - IT系 & 秋葉系ニュース速報 -->
+    <section class="tile tile-x-feed" id="tile-x-feed">
+      <div class="tile-header">
+        <div class="x-header-left">
+          <span class="x-brand-logo">𝕏</span>
+          <span class="tile-title">速報タイムライン</span>
+          <div class="x-feed-tabs">
+            <button class="x-tab-btn active" id="x-tab-it" data-channel="it">💻 IT・テック</button>
+            <span class="tab-separator">|</span>
+            <button class="x-tab-btn" id="x-tab-akiba" data-channel="akiba">⚡ 秋葉原・PC特価</button>
+          </div>
+        </div>
+        <div class="x-header-right">
+          <div class="feed-timer-bar-wrap">
+            <div class="feed-timer-bar" id="x-timer-bar"></div>
+          </div>
+          <a href="https://x.com" target="_blank" rel="noopener noreferrer" class="x-open-btn" id="btn-x-open" title="Xでタイムラインを開く">𝕏 を開く ↗</a>
+        </div>
+      </div>
+      <div class="x-feed-body">
+        <!-- タイムライン投稿一覧ペイン -->
+        <div class="x-timeline-pane" id="x-timeline-pane">
+          <div class="x-posts-stream" id="x-posts-stream">
+            <div class="x-loading-placeholder">
+              <div class="x-loading-spinner"></div>
+              <span>最新のポストを取得中...</span>
+            </div>
+          </div>
+        </div>
+        <!-- 下部: 注目ピックアップポスト領域 (大きな図と詳細要約) -->
+        <div class="x-featured-card" id="x-featured-card">
+          <div class="x-loading-placeholder">要約を準備中...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- タイル6: IT/テック & アキバ特価情報ニュース パネル -->
     <section class="tile tile-news" id="tile-news">
       <div class="tile-header">
-        <div class="feed-tabs">
-          <span class="feed-tab-label active" id="news-tab-yahoo">IT・ガジェット速報 (GIZMODO)</span>
-          <span class="tab-separator">|</span>
-          <span class="feed-tab-label" id="news-tab-akiba">アキバ・PC特価 (ASCII)</span>
+        <div class="header-left">
+          <span class="news-brand-icon">📰</span>
+          <span class="tile-title">IT & アキバ特価</span>
+          <div class="news-feed-tabs">
+            <button class="news-tab-btn active" id="tab-news-it" data-channel="it">💻 IT・テック</button>
+            <span class="tab-separator">|</span>
+            <button class="news-tab-btn" id="tab-news-akiba" data-channel="akiba">⚡ 秋葉原・PC特価</button>
+          </div>
         </div>
-        <div class="feed-timer-bar-wrap">
-          <div class="feed-timer-bar" id="feed-timer-bar"></div>
+        <div class="header-right-actions">
+          <div class="feed-timer-bar-wrap">
+            <div class="feed-timer-bar" id="news-timer-bar"></div>
+          </div>
+          <a href="https://www.gizmodo.jp" target="_blank" rel="noopener noreferrer" class="news-ext-link" id="link-news-ext" title="ニュースサイトを開く">開く ↗</a>
         </div>
       </div>
       <div class="news-body">
-        <!-- Yahoo!ニュース (IT・ガジェット速報) 表示領域 -->
-        <div class="news-channel-pane active" id="pane-yahoo">
-          <ul class="news-list" id="yahoo-news-list">
-            <li class="news-loading">ニュースを取得中...</li>
-          </ul>
-          <!-- 下部空き領域: 注目記事の大きな図 ＋ 記事要約 -->
-          <div class="news-featured-box" id="yahoo-featured-box">
-            <div class="news-loading">要約を取得中...</div>
+        <!-- ITチャンネル ペイン -->
+        <div class="news-channel-pane active" id="pane-news-it">
+          <!-- 注目記事カード (写真 + タイトル + 要約文) -->
+          <div class="news-featured-box" id="featured-news-it">
+            <div class="x-loading-placeholder">ニュースを取得中...</div>
           </div>
+          <!-- ヘッドライン一覧リスト -->
+          <ul class="news-list" id="list-news-it"></ul>
         </div>
-
-        <!-- アキバ特価情報 表示領域 -->
-        <div class="news-channel-pane" id="pane-akiba">
-          <ul class="news-list" id="akiba-news-list">
-            <li class="news-loading">特価情報を取得中...</li>
-          </ul>
-          <!-- 下部空き領域: 注目記事の大きな図 ＋ 記事要約 -->
-          <div class="news-featured-box" id="akiba-featured-box">
-            <div class="news-loading">要約を取得中...</div>
+        <!-- 秋葉原チャンネル ペイン -->
+        <div class="news-channel-pane" id="pane-news-akiba">
+          <!-- 注目記事カード (写真 + タイトル + 要約文) -->
+          <div class="news-featured-box" id="featured-news-akiba">
+            <div class="x-loading-placeholder">特価情報を取得中...</div>
           </div>
+          <!-- ヘッドライン一覧リスト -->
+          <ul class="news-list" id="list-news-akiba"></ul>
         </div>
       </div>
     </section>
@@ -366,23 +369,11 @@
         </div>
 
         <div class="form-group">
-          <label for="cfg-map-wife-url">Googleマップ (妻の位置情報) URL</label>
-          <input type="text" id="cfg-map-wife-url" placeholder="https://maps.app.goo.gl/... または住所・座標">
-          <small>Googleマップ「現在地共有」リンク、住所（例: 品川区大崎）、または埋め込みURL</small>
+          <label for="cfg-map-current-url">Googleマップ (現在位置) URL または住所</label>
+          <input type="text" id="cfg-map-current-url" placeholder="空欄時はGPSから自動表示 (例: 品川区大崎、またはGoogleマップURL)">
+          <small>※空欄の場合は端末のGPSから自動的に現在地地図を表示します。</small>
         </div>
 
-        <div class="form-group">
-          <label for="cfg-map-daughter-url">Googleマップ (娘の位置情報) URL</label>
-          <input type="text" id="cfg-map-daughter-url" placeholder="https://maps.app.goo.gl/... または住所・座標">
-          <small>Googleマップ「現在地共有」リンク、住所（例: 品川区大崎）、または埋め込みURL</small>
-          <div class="map-safari-note">
-            <p><strong>💡 家族の位置情報設定のポイント:</strong></p>
-            <ul>
-              <li><strong>現在地共有リンク (maps.app.goo.gl):</strong> Googleのセキュリティによりiframe内には直接描画されませんが、サイネージ上に「Googleマップで現在地を確認」ボタンが常時表示され、1タップでリアルタイム位置を確認できます。</li>
-              <li><strong>住所や座標（例: 品川区大崎 / 35.6197, 139.7285）:</strong> タイル内に直接インタラクティブな地図が埋め込み表示されます。</li>
-            </ul>
-          </div>
-        </div>
 
         <div class="form-group form-checkbox-group">
           <label class="checkbox-label" for="cfg-youtube-premium">
@@ -404,7 +395,16 @@
         </div>
 
         <div class="form-group">
-          <label for="cfg-youtube-genre">YouTube お好みの動画ジャンル</label>
+          <label for="cfg-youtube-default-mode">YouTube デフォルト再生モード</label>
+          <select id="cfg-youtube-default-mode">
+            <option value="weather">🔴 ウェザーニュース最新Live (常時最新生放送)</option>
+            <option value="recommend">✨ おすすめ動画 (最新テック・秋葉原・トレンドを自動ローテーション)</option>
+          </select>
+          <small>※タイル上のボタンからいつでも1タップで切り替え可能です</small>
+        </div>
+
+        <div class="form-group">
+          <label for="cfg-youtube-genre">YouTube おすすめ動画のジャンル</label>
           <select id="cfg-youtube-genre">
             <option value="all_mix">🌟 総合ミックス (ニュース・ウェザーニュース・アキバ・テック)</option>
             <option value="news_weather">📺 テレビニュース & ウェザーニュース Live</option>

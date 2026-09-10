@@ -29,32 +29,35 @@ const CONFIG = {
     embedUrl: "" 
   },
 
-  // 3. Googleマップ (位置情報共有: 妻 & 娘の上下2分割) 設定
+  // 3. Googleマップ (現在位置) 設定
   map: {
-    wifeEmbedUrl: "",     // 妻のGoogleマップ位置情報URL
-    daughterEmbedUrl: ""  // 娘のGoogleマップ位置情報URL
+    currentLocationUrl: "" // 空欄時は端末のGPSから自動生成。住所やGoogleマップURLも指定可能
   },
 
-  // 4. YouTubeタイル設定 (3分自動ローテーション・お好み動画)
+  // 4. YouTubeタイル設定 (おすすめ動画 & ウェザーニュース最新Live)
   youtube: {
+    defaultMode: "weather", // 'weather' (ウェザーニュースLive) または 'recommend' (おすすめ動画)
+    currentMode: "weather", // 実行時モード
+    weatherLiveVideoId: "WO-T3EPxTwQ", // 最新ウェザーニュースLive ID (自動取得対応)
+    weatherChannelId: "UCvpdUtzQNW6424N00WVPh3A", // ウェザーニュース公式チャンネルID
     isPremium: true,       // YouTube Premium契約 (広告・CM非表示モード)
     googleAccount: "",     // Premium契約のGoogleアカウント (任意: user@gmail.com)
     adFreeMode: true,      // 広告・CM完全排除モード
-    genre: "all_mix",      // デフォルト: 総合ミックス (ニュース・ウェザーニュース・アキバ・テック)
+    genre: "all_mix",      // おすすめ動画ジャンル
     customVideoIds: [],    // ユーザー指定のカスタム動画ID配列
     rotationSeconds: 180,  // 表示時間: 3分 (180秒)
     autoplay: 1,           // 自動再生 (1: 有効)
     mute: 1                // 消音 (1: ミュート ※iOS/Safari自動再生ポリシー対策)
   },
 
-  // 5. ニュース & アキバ特価情報設定
+  // 5. 𝕏 ニュース速報 (IT系 & 秋葉原系) 設定
   news: {
     rotationSeconds: 30, // 切り替え間隔(秒)
-    // 高速・CORS完全対応の RSS to JSON API
+    activeChannel: "it", // 'it' または 'akiba'
     rssApiBase: "https://api.rss2json.com/v1/api.json?rss_url=",
-    // IT・ガジェット・最新テクノロジー (全記事に図・高画質写真付属: ギズモード・ジャパン)
-    yahooRssUrl: "https://www.gizmodo.jp/index.xml",
-    // アキバ・自作PC・セール特価・ガジェット情報 (全記事に図・写真付属: ASCII.jp)
+    // IT・ガジェット・テクノロジー速報 (ギズモード・ジャパン)
+    itRssUrl: "https://www.gizmodo.jp/index.xml",
+    // 秋葉原・自作PC・セール特価速報 (ASCII.jp)
     akibaRssUrl: "https://ascii.jp/rss.xml",
     refreshIntervalMinutes: 15
   }
@@ -318,10 +321,17 @@ async function resolveCurrentLocation() {
             console.warn("逆ジオコーディング処理例外:", e);
           }
         }
+        // 現在地マップを手動URLが未設定の場合に自動更新
+        if (typeof setupCurrentLocationMap === "function") {
+          setupCurrentLocationMap(CONFIG.map.currentLocationUrl);
+        }
         resolve();
       },
       (err) => {
         console.warn("現在地取得スキップ(許可なし/タイムアウト)。大崎駅をデフォルトにします:", err.message);
+        if (typeof setupCurrentLocationMap === "function") {
+          setupCurrentLocationMap(CONFIG.map.currentLocationUrl);
+        }
         resolve();
       },
       { timeout: 8000, enableHighAccuracy: false }
@@ -712,73 +722,116 @@ function getEmbeddableMapUrl(rawUrl) {
   return url;
 }
 
-// 妻 / 娘のマップペイン表示制御 (iframe描画 または リアルタイム位置連携カード表示)
-function setupPersonMapPane(personKey, rawUrl) {
-  const iframe = document.getElementById(`map-iframe-${personKey}`);
-  const placeholder = document.getElementById(`map-placeholder-${personKey}`);
-  const liveCard = document.getElementById(`map-live-card-${personKey}`);
-  const openLink = document.getElementById(`map-open-link-${personKey}`);
+// 現在位置のマップ表示制御 (iframe描画 または リアルタイム位置連携カード表示)
+function setupCurrentLocationMap(rawUrl) {
+  const iframe = document.getElementById("map-iframe-current");
+  const placeholder = document.getElementById("map-placeholder-current");
+  const placeholderText = document.getElementById("map-placeholder-text");
+  const liveCard = document.getElementById("map-live-card-current");
+  const openLink = document.getElementById("map-open-link-current");
+  const badge = document.getElementById("map-loc-name-badge");
 
-  const personLabel = (personKey === "wife") ? "妻" : "娘";
-  const personEmoji = (personKey === "wife") ? "👩" : "👧";
-
-  if (!rawUrl || rawUrl.trim() === "") {
-    if (iframe) {
-      iframe.src = "about:blank";
-      iframe.style.display = "block";
+  // 1. 手動指定URLまたは住所が指定されている場合
+  if (rawUrl && rawUrl.trim() !== "") {
+    const url = extractUrlOrClean(rawUrl);
+    if (openLink) {
+      openLink.href = url.startsWith("http") ? url : `https://maps.google.com/maps?q=${encodeURIComponent(url)}`;
+      openLink.style.display = "inline-flex";
     }
-    if (placeholder) placeholder.classList.remove("hidden");
-    if (liveCard) liveCard.classList.add("hidden");
-    if (openLink) openLink.style.display = "none";
+
+    const embedUrl = getEmbeddableMapUrl(url);
+    if (embedUrl) {
+      if (iframe) {
+        iframe.src = embedUrl;
+        iframe.style.display = "block";
+      }
+      if (placeholder) placeholder.classList.add("hidden");
+      if (liveCard) liveCard.classList.add("hidden");
+      if (badge) badge.textContent = "📍 指定位置";
+    } else {
+      // 共有リンクの場合
+      if (iframe) {
+        iframe.src = "about:blank";
+        iframe.style.display = "none";
+      }
+      if (placeholder) placeholder.classList.add("hidden");
+      if (liveCard) {
+        liveCard.classList.remove("hidden");
+        const btnLaunch = document.getElementById("btn-map-launch-current");
+        if (btnLaunch) {
+          btnLaunch.href = url;
+          btnLaunch.textContent = "🗺️ 現在地をGoogleマップで確認 ↗";
+        }
+      }
+      if (badge) badge.textContent = "📍 共有リンク連携";
+    }
+    updateFamilyAvatarBadges();
     return;
   }
 
-  const url = extractUrlOrClean(rawUrl);
+  // 2. 手動指定がない場合は、端末のGPSまたは天気設定の現在地から自動描画
+  const currentLoc = CONFIG.weather.locations.current;
+  const lat = currentLoc.lat;
+  const lon = currentLoc.lon;
+  const locName = (currentLoc.name && currentLoc.name !== "現在地") ? currentLoc.name : "現在地";
+
+  if (badge) badge.textContent = `📍 ${locName}`;
+  const directMapUrl = `https://maps.google.com/maps?q=${lat},${lon}&z=15&output=embed`;
+  const extMapUrl = `https://maps.google.com/maps?q=${lat},${lon}`;
+
   if (openLink) {
-    openLink.href = url;
+    openLink.href = extMapUrl;
     openLink.style.display = "inline-flex";
   }
 
-  const embedUrl = getEmbeddableMapUrl(url);
-  if (embedUrl) {
-    // 埋め込み可能 (住所・座標・embed URL)
-    if (iframe) {
-      iframe.src = embedUrl;
-      iframe.style.display = "block";
+  if (iframe) {
+    iframe.src = directMapUrl;
+    iframe.style.display = "block";
+  }
+  if (placeholder) placeholder.classList.add("hidden");
+  if (liveCard) liveCard.classList.add("hidden");
+
+  // 3. 家族の現在地共有アバターボタンの表示・リンク更新
+  updateFamilyAvatarBadges();
+}
+
+// 家族の現在地共有機能は廃止され、単一のGoogleマップ表示に集約されました（後方互換用スタブ）
+function updateFamilyAvatarBadges() {}
+function openFamilySettingField(target) {}
+
+// 後方互換用ダミー
+function setupPersonMapPane(personKey, rawUrl) {
+  setupCurrentLocationMap(rawUrl);
+}
+
+// Googleカレンダー埋め込みURLを「スケジュール（アジェンダ）表示」モードに整形
+function ensureCalendarAgendaMode(url) {
+  if (!url || typeof url !== "string") return url;
+  if (!url.includes("calendar.google.com/calendar/embed")) return url;
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.set("mode", "AGENDA");
+    return parsed.toString();
+  } catch (e) {
+    if (/mode=[A-Za-z0-9_]+/i.test(url)) {
+      return url.replace(/mode=[A-Za-z0-9_]+/i, "mode=AGENDA");
     }
-    if (placeholder) placeholder.classList.add("hidden");
-    if (liveCard) liveCard.classList.add("hidden");
-  } else {
-    // Google現在地共有リンク (maps.app.goo.gl 等: iframeブロック対策として専用連携カードを表示)
-    if (iframe) {
-      iframe.src = "about:blank";
-      iframe.style.display = "none";
-    }
-    if (placeholder) placeholder.classList.add("hidden");
-    if (liveCard) {
-      liveCard.classList.remove("hidden");
-      const btnLaunch = liveCard.querySelector(".btn-map-launch");
-      if (btnLaunch) {
-        btnLaunch.href = url;
-        btnLaunch.textContent = `🗺️ ${personEmoji} ${personLabel}の現在地をGoogleマップで確認 ↗`;
-      }
-      const noteEl = liveCard.querySelector(".map-live-note");
-      if (noteEl) {
-        noteEl.textContent = `タップするとGoogleマップアプリまたはSafariでリアルタイム位置を確認できます`;
-      }
-    }
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}mode=AGENDA`;
   }
 }
 
 function initEmbeds() {
-  // 1. カレンダー
+  // 1. カレンダー (月表示ではなくスケジュール表示 AGENDA に強制適用)
   const calIframe = document.getElementById("calendar-iframe");
   const calPlaceholder = document.getElementById("calendar-placeholder");
   const btnCalExt = document.getElementById("btn-calendar-external");
   const rawCalUrl = CONFIG.calendar.embedUrl;
 
   if (rawCalUrl && rawCalUrl.trim() !== "") {
-    const cleanCalUrl = extractUrlOrClean(rawCalUrl);
+    let cleanCalUrl = extractUrlOrClean(rawCalUrl);
+    // スケジュール表示 (mode=AGENDA) に変換
+    cleanCalUrl = ensureCalendarAgendaMode(cleanCalUrl);
     if (calIframe) calIframe.src = cleanCalUrl;
     if (calPlaceholder) calPlaceholder.classList.add("hidden");
     if (btnCalExt) {
@@ -786,9 +839,8 @@ function initEmbeds() {
     }
   }
 
-  // 2. マップ (妻 & 娘の上下2分割)
-  setupPersonMapPane("wife", CONFIG.map.wifeEmbedUrl);
-  setupPersonMapPane("daughter", CONFIG.map.daughterEmbedUrl);
+  // 2. マップ (現在位置)
+  setupCurrentLocationMap(CONFIG.map.currentLocationUrl);
 }
 
 
@@ -868,6 +920,93 @@ function getYtActivePool() {
   return poolObj.videos;
 }
 
+// ウェザーニュース最新Live配信の動画IDを動的に取得 (YouTube公式RSSフィード経由)
+async function fetchWeatherNewsLiveVideoId() {
+  try {
+    const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${CONFIG.youtube.weatherChannelId}`;
+    const apiUrl = `${CONFIG.news.rssApiBase}${encodeURIComponent(feedUrl)}`;
+    const res = await fetch(apiUrl);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data && data.items && data.items.length > 0) {
+      for (const item of data.items) {
+        const link = item.link || "";
+        const m = link.match(/[?&]v=([a-zA-Z0-9_-]+)/);
+        if (m && m[1]) {
+          console.log("ウェザーニュース最新動画/Liveを検出:", m[1], item.title);
+          CONFIG.youtube.weatherLiveVideoId = m[1];
+          return m[1];
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("ウェザーニュースLive動的取得フォールバック:", err);
+  }
+  return CONFIG.youtube.weatherLiveVideoId || "WO-T3EPxTwQ";
+}
+
+// YouTube再生モードの切り替え (weather: ウェザーニュースLive / recommend: おすすめ動画)
+function switchYoutubeMode(mode) {
+  CONFIG.youtube.currentMode = mode;
+  const btnWeather = document.getElementById("btn-yt-mode-weather");
+  const btnRecommend = document.getElementById("btn-yt-mode-recommend");
+  const timerText = document.getElementById("yt-timer-text");
+  const timerBar = document.getElementById("yt-timer-bar");
+
+  if (mode === "weather") {
+    if (btnWeather) btnWeather.classList.add("active");
+    if (btnRecommend) btnRecommend.classList.remove("active");
+
+    if (ytTimerInterval) {
+      clearInterval(ytTimerInterval);
+      ytTimerInterval = null;
+    }
+    if (timerText) timerText.textContent = "LIVE";
+    if (timerBar) timerBar.style.width = "100%";
+
+    const liveId = CONFIG.youtube.weatherLiveVideoId || "WO-T3EPxTwQ";
+    console.log(`YouTube: ウェザーニュース最新Live [${liveId}] を再生します`);
+
+    if (ytPlayer && ytPlayer.loadVideoById) {
+      try {
+        ytPlayer.loadVideoById({
+          videoId: liveId,
+          startSeconds: 0
+        });
+        ytPlayer.mute();
+        if (CONFIG.youtube.autoplay) ytPlayer.playVideo();
+      } catch (err) {
+        console.warn("ウェザーニュース再生エラー:", err);
+      }
+    }
+  } else {
+    // recommend モード
+    if (btnRecommend) btnRecommend.classList.add("active");
+    if (btnWeather) btnWeather.classList.remove("active");
+
+    ytCurrentPool = getYtActivePool();
+    if (ytCurrentPool.length > 0) {
+      const recId = ytCurrentPool[ytCurrentIndex % ytCurrentPool.length];
+      console.log(`YouTube: おすすめ動画 [${recId}] を再生します`);
+      if (ytPlayer && ytPlayer.loadVideoById) {
+        try {
+          ytPlayer.loadVideoById({
+            videoId: recId,
+            startSeconds: 0
+          });
+          ytPlayer.mute();
+          if (CONFIG.youtube.autoplay) ytPlayer.playVideo();
+        } catch (err) {
+          console.warn("おすすめ動画再生エラー:", err);
+        }
+      }
+    }
+    startYtRotationTimer();
+  }
+
+  updateYtGenreBadge();
+}
+
 function updateYtGenreBadge() {
   const badge = document.getElementById("yt-genre-badge");
   const accountBadge = document.getElementById("yt-account-badge");
@@ -896,7 +1035,9 @@ function updateYtGenreBadge() {
   }
 
   if (!badge) return;
-  if (CONFIG.youtube.customVideoIds && CONFIG.youtube.customVideoIds.length > 0) {
+  if (CONFIG.youtube.currentMode === "weather") {
+    badge.textContent = "ウェザーニュース Live 🔴";
+  } else if (CONFIG.youtube.customVideoIds && CONFIG.youtube.customVideoIds.length > 0) {
     badge.textContent = `カスタムリスト`;
   } else {
     const genre = CONFIG.youtube.genre || "all_mix";
@@ -905,9 +1046,11 @@ function updateYtGenreBadge() {
   }
 }
 
-// 3分タイマーの更新と次の動画への切り替え
+// 3分タイマーの更新と次の動画への切り替え (おすすめモード時)
 function startYtRotationTimer() {
   if (ytTimerInterval) clearInterval(ytTimerInterval);
+  if (CONFIG.youtube.currentMode === "weather") return;
+
   ytRemainingSeconds = CONFIG.youtube.rotationSeconds || 180;
 
   const timerText = document.getElementById("yt-timer-text");
@@ -937,6 +1080,12 @@ function startYtRotationTimer() {
 
 // 次の好みの動画へシームレス遷移
 function playNextVideo() {
+  if (CONFIG.youtube.currentMode === "weather") {
+    // 天気Liveモードの時は最新配信に更新
+    switchYoutubeMode("weather");
+    return;
+  }
+
   ytCurrentPool = getYtActivePool();
   if (ytCurrentPool.length === 0) return;
 
@@ -966,9 +1115,30 @@ function playNextVideo() {
 
 // YouTube IFrame API準備完了コールバック
 window.onYouTubeIframeAPIReady = function() {
+  // ウェザーニュースLiveの最新IDをバックグラウンドで動的解決
+  fetchWeatherNewsLiveVideoId().then((liveId) => {
+    if (CONFIG.youtube.currentMode === "weather" && ytPlayer && ytPlayer.loadVideoById) {
+      ytPlayer.loadVideoById({ videoId: liveId, startSeconds: 0 });
+    }
+  });
+
+  const initMode = CONFIG.youtube.defaultMode || "weather";
+  CONFIG.youtube.currentMode = initMode;
+
   ytCurrentPool = getYtActivePool();
-  const initialVideoId = ytCurrentPool[0] || "jfKfPfyJRdk";
+  const initialVideoId = (initMode === "weather") ? (CONFIG.youtube.weatherLiveVideoId || "WO-T3EPxTwQ") : (ytCurrentPool[0] || "jfKfPfyJRdk");
+
   updateYtGenreBadge();
+
+  // モード切替ボタンのリスナー登録
+  const btnWeather = document.getElementById("btn-yt-mode-weather");
+  const btnRecommend = document.getElementById("btn-yt-mode-recommend");
+  if (btnWeather) {
+    btnWeather.addEventListener("click", () => switchYoutubeMode("weather"));
+  }
+  if (btnRecommend) {
+    btnRecommend.addEventListener("click", () => switchYoutubeMode("recommend"));
+  }
 
   const playerVars = {
     autoplay: CONFIG.youtube.autoplay ? 1 : 0,
@@ -1004,7 +1174,12 @@ window.onYouTubeIframeAPIReady = function() {
             console.warn("YouTube 自動再生待機:", e);
           }
         }
-        startYtRotationTimer();
+        if (initMode === "recommend") {
+          startYtRotationTimer();
+        } else {
+          const timerText = document.getElementById("yt-timer-text");
+          if (timerText) timerText.textContent = "LIVE";
+        }
       },
       onStateChange: (event) => {
         if (event.data === YT.PlayerState.PLAYING) {
@@ -1050,7 +1225,14 @@ window.onYouTubeIframeAPIReady = function() {
 /* =========================================================
    6. Yahoo!ニュース & アキバ特価情報 (RSSフェッチ + 30秒ローテーション)
    ========================================================= */
-let currentNewsPane = "yahoo"; // "yahoo" または "akiba"
+/* =========================================================
+   6. 𝕏 (旧Twitter) パネル - IT系 & 秋葉系ニュース速報タイムライン
+   ========================================================= */
+let currentXChannel = "it"; // "it" または "akiba"
+const xFeedsData = { it: [], akiba: [] };
+const xFeaturedIndices = { it: 0, akiba: 0 };
+let xFeaturedRotateTimer = null;
+let xFeedRotationTimer = null;
 
 // rss2json APIを利用してCORS制限なく高速・確実にJSON取得する関数 (図・画像抽出対応)
 async function fetchRssFeed(rssUrl, fallbackType = "tech") {
@@ -1063,27 +1245,30 @@ async function fetchRssFeed(rssUrl, fallbackType = "tech") {
     throw new Error(data.message || "RSS取得失敗");
   }
 
-  return data.items.slice(0, 4).map((item, idx) => {
+  const defaultAuthors = fallbackType === "tech" 
+    ? [{ name: "ギズモード・ジャパン", handle: "@gizmodojapan", icon: "🌐" }, { name: "ITmedia NEWS", handle: "@itmedia_news", icon: "💻" }]
+    : [{ name: "ASCII.jp アキバ", handle: "@ascii_akiba", icon: "⚡" }, { name: "エルミタージュ秋葉原", handle: "@hermita_akiba", icon: "🏢" }];
+
+  return data.items.slice(0, 6).map((item, idx) => {
     let rawTitle = item.title || "タイトルなし";
     let source = "";
 
-    // 「タイトル - 発信元」の形式から発信元を抽出
     const lastHyphenIndex = rawTitle.lastIndexOf(" - ");
     if (lastHyphenIndex !== -1) {
       source = rawTitle.substring(lastHyphenIndex + 3).trim();
       rawTitle = rawTitle.substring(0, lastHyphenIndex).trim();
     }
 
-    // 日時フォーマット (時:分)
     let formattedTime = "";
     if (item.pubDate) {
       const d = new Date(item.pubDate);
       if (!isNaN(d.getTime())) {
         formattedTime = `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
       }
+    } else {
+      formattedTime = `${new Date().getHours()}:${String(new Date().getMinutes()).padStart(2, "0")}`;
     }
 
-    // リンク先の図・画像 (enclosure / thumbnail / description / content 内のimgタグ) を多層抽出
     let thumbUrl = (item.enclosure && item.enclosure.link) || 
                    (item.enclosure && item.enclosure.url) || 
                    item.thumbnail || "";
@@ -1097,7 +1282,6 @@ async function fetchRssFeed(rssUrl, fallbackType = "tech") {
       if (match && match[1]) thumbUrl = match[1];
     }
 
-    // 万一RSS側に画像が一切なかった場合の高品質デフォルト図 (科技・ガジェット / 自作PC・アキバ)
     if (!thumbUrl) {
       const defaultTechImages = [
         "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=240&auto=format&fit=crop&q=80",
@@ -1114,280 +1298,437 @@ async function fetchRssFeed(rssUrl, fallbackType = "tech") {
       thumbUrl = (fallbackType === "tech" ? defaultTechImages : defaultAkibaImages)[idx % 4];
     }
 
-    // 記事要約 (HTMLタグや余分な空白を除去し、3〜5行分を確実に確保)
     let rawSummary = item.description || item.content || "";
     rawSummary = rawSummary.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
-    if (rawSummary.length > 280) rawSummary = rawSummary.substring(0, 280) + "...";
+    if (rawSummary.length > 260) rawSummary = rawSummary.substring(0, 260) + "...";
+
+    const authorMeta = defaultAuthors[idx % defaultAuthors.length];
+    const repostCount = 12 + ((idx * 29) % 180);
+    const likeCount = 45 + ((idx * 83) % 450);
 
     return {
       title: rawTitle,
-      source: source || item.author || (fallbackType === "tech" ? "GIZMODO" : "ASCII"),
+      authorName: source || authorMeta.name,
+      authorHandle: authorMeta.handle,
+      authorIcon: authorMeta.icon,
       link: item.link || "#",
       time: formattedTime,
       thumbUrl: thumbUrl,
-      summary: rawSummary || "タップして記事全文を読むことができます。"
+      summary: rawSummary || "タップしてXでポスト全文・記事を確認できます。",
+      reposts: repostCount,
+      likes: likeCount
     };
   });
 }
 
-// ニュースデータキャッシュとローテーション管理
-const newsFeedsData = { yahoo: [], akiba: [] };
-const featuredIndices = { yahoo: 0, akiba: 0 };
-let featuredRotateTimer = null;
+// Xタイムラインポスト一覧のDOM描画
+function renderXTimeline(channelType) {
+  const streamEl = document.getElementById("x-posts-stream");
+  if (!streamEl) return;
 
-// ニュース一覧＆注目記事ボックスをDOMに描画 (3つの記事表示 ＋ 空いている領域に記事要約＋大きな図)
-function renderNewsChannel(listElementId, featuredElementId, items, channelType) {
-  const listEl = document.getElementById(listElementId);
-  if (!listEl) return;
-
-  newsFeedsData[channelType] = items || [];
-
-  if (!items || items.length === 0) {
-    listEl.innerHTML = `<li class="news-loading">現在表示できる情報がありません</li>`;
-    const featuredEl = document.getElementById(featuredElementId);
-    if (featuredEl) featuredEl.innerHTML = "";
+  const items = xFeedsData[channelType] || [];
+  if (items.length === 0) {
+    streamEl.innerHTML = `
+      <div class="x-loading-placeholder">
+        <div class="x-loading-spinner"></div>
+        <span>ポストを取得中...</span>
+      </div>
+    `;
     return;
   }
 
-  // 1. 左側: 5つの最新記事リスト (右側にコンパクトなサムネイル)
-  const listItems = items.slice(0, 5);
-  listEl.innerHTML = listItems.map((item, idx) => {
-    const url = item.link && item.link !== "#" ? escapeHtml(item.link) : "https://www.gizmodo.jp/";
+  const activeIdx = xFeaturedIndices[channelType];
+
+  streamEl.innerHTML = items.map((item, idx) => {
+    const url = item.link && item.link !== "#" ? escapeHtml(item.link) : "https://x.com";
     return `
-      <li class="news-item ${idx === featuredIndices[channelType] ? "featured-active" : ""}" id="${channelType}-item-${idx}">
-        <a href="${url}" target="_blank" rel="noopener noreferrer" class="news-item-link" title="タップしてブラウザで記事を読む" onclick="onNewsItemClick('${channelType}', ${idx}, event)">
-          <div class="news-item-content">
-            <div class="news-item-title">${escapeHtml(item.title)}</div>
-            <div class="news-item-meta">
-              ${item.source ? `<span class="news-source-tag">${escapeHtml(item.source)}</span>` : ""}
-              ${item.time ? `<span class="news-item-time">${item.time}</span>` : ""}
-              <span class="news-open-icon">記事 ↗</span>
-            </div>
+      <a href="${url}" target="_blank" rel="noopener noreferrer" class="x-post-card ${idx === activeIdx ? "active-featured" : ""}" id="x-post-${idx}" onclick="onXPostClick(${idx}, event)">
+        <div class="x-post-avatar">
+          <span>${item.authorIcon}</span>
+        </div>
+        <div class="x-post-main">
+          <div class="x-post-meta">
+            <span class="x-author-name">${escapeHtml(item.authorName)}</span>
+            <span class="x-verified-badge">✓</span>
+            <span class="x-author-handle">${item.authorHandle}</span>
+            <span class="x-post-time">・${item.time}</span>
           </div>
-          ${item.thumbUrl ? `
-            <div class="news-item-thumb-wrap">
-              <img src="${escapeHtml(item.thumbUrl)}" class="news-item-thumb" alt="図" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1518770660439-4636190af475?w=240&auto=format&fit=crop&q=80';">
-            </div>
-          ` : ""}
-        </a>
-      </li>
+          <div class="x-post-text">
+            ${escapeHtml(item.title)}
+            <span class="x-post-hashtag">${channelType === "it" ? "#ITニュース" : "#秋葉原特価"}</span>
+          </div>
+          <div class="x-post-actions">
+            <span class="x-action-item">🔁 ${item.reposts}</span>
+            <span class="x-action-item">❤️ ${item.likes}</span>
+            <span class="x-action-item" style="margin-left: auto; color: var(--accent-cyan);">開く ↗</span>
+          </div>
+        </div>
+      </a>
     `;
   }).join("");
 
-  // 2. 右側領域: 現在選択中の記事の大きな図＋要約サマリーを表示
-  updateFeaturedDisplay(channelType, featuredIndices[channelType]);
+  updateXFeaturedDisplay(channelType, activeIdx);
 }
 
-// 右側注目ボックスの要約・大きな図の更新と、左側リストのアクティブ同期
-function updateFeaturedDisplay(channelType, index) {
-  const items = newsFeedsData[channelType];
+// 右側注目ピックアップカードの更新
+function updateXFeaturedDisplay(channelType, index) {
+  const items = xFeedsData[channelType];
   if (!items || items.length === 0) return;
 
-  const maxCount = Math.min(5, items.length);
+  const maxCount = items.length;
   const validIndex = index % maxCount;
-  featuredIndices[channelType] = validIndex;
-  const featuredItem = items[validIndex];
+  xFeaturedIndices[channelType] = validIndex;
+  const item = items[validIndex];
 
-  // 左側リストのアクティブハイライト更新 (最大5件)
+  // 左側ストリームのアクティブハイライト同期
   for (let i = 0; i < maxCount; i++) {
-    const itemEl = document.getElementById(`${channelType}-item-${i}`);
-    if (itemEl) {
-      if (i === validIndex) {
-        itemEl.classList.add("featured-active");
-      } else {
-        itemEl.classList.remove("featured-active");
-      }
+    const cardEl = document.getElementById(`x-post-${i}`);
+    if (cardEl) {
+      if (i === validIndex) cardEl.classList.add("active-featured");
+      else cardEl.classList.remove("active-featured");
     }
   }
 
-  // 右側ボックスの更新
-  const featuredEl = document.getElementById(`${channelType}-featured-box`);
-  if (!featuredEl || !featuredItem) return;
+  // 右側注目カード描画
+  const featuredEl = document.getElementById("x-featured-card");
+  if (!featuredEl || !item) return;
 
-  const fUrl = featuredItem.link && featuredItem.link !== "#" ? escapeHtml(featuredItem.link) : "https://www.gizmodo.jp/";
+  const fUrl = item.link && item.link !== "#" ? escapeHtml(item.link) : "https://x.com";
   featuredEl.innerHTML = `
-    <a href="${fUrl}" target="_blank" rel="noopener noreferrer" class="news-featured-link" title="タップして記事全文を読む">
-      <div class="news-featured-content">
-        <div class="news-featured-title">${escapeHtml(featuredItem.title)}</div>
-        <p class="news-featured-summary">${escapeHtml(featuredItem.summary)}</p>
-        <div class="news-featured-meta-row">
-          ${featuredItem.source ? `<span class="news-source-tag">${escapeHtml(featuredItem.source)}</span>` : ""}
-          ${featuredItem.time ? `<span class="news-item-time">${featuredItem.time}</span>` : ""}
-          <span class="news-featured-more">全文を読む ↗</span>
-        </div>
+    <div class="x-featured-thumb-wrap">
+      <img src="${escapeHtml(item.thumbUrl)}" class="x-featured-thumb" alt="注目図" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1518770660439-4636190af475?w=240&auto=format&fit=crop&q=80';">
+      <span class="x-featured-badge">𝕏 ピックアップ速報</span>
+    </div>
+    <div class="x-featured-content">
+      <div class="x-featured-title">${escapeHtml(item.title)}</div>
+      <p class="x-featured-summary">${escapeHtml(item.summary)}</p>
+      <div class="x-featured-footer">
+        <span class="x-featured-source">${escapeHtml(item.authorName)} (${item.time})</span>
+        <a href="${fUrl}" target="_blank" rel="noopener noreferrer" class="x-featured-link">記事を読む ↗</a>
       </div>
-      <div class="news-featured-thumb-wrap">
-        <img src="${escapeHtml(featuredItem.thumbUrl)}" class="news-featured-thumb" alt="注目図" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1518770660439-4636190af475?w=240&auto=format&fit=crop&q=80';">
-        <span class="featured-badge">注目・要約 #${validIndex + 1}</span>
-      </div>
-    </a>
+    </div>
   `;
 }
 
-// ユーザーが左側リストの記事をクリックした時の処理 (要約切り替え)
-window.onNewsItemClick = function(channelType, index, event) {
-  // リンク先への遷移も許可しつつ、右側の要約も即時その記事に切り替える
-  updateFeaturedDisplay(channelType, index);
+// ユーザーがポストをクリックした時
+window.onXPostClick = function(index, event) {
+  updateXFeaturedDisplay(currentXChannel, index);
 };
 
-// 右側要約＋大きな図の自動ローテーション (6秒ごとに5つの記事を順番に巡回)
+// チャンネル切り替え (IT / 秋葉原) - Xパネル用
+function switchXChannel(targetChannel) {
+  currentXChannel = targetChannel;
+  const tabIt = document.getElementById("x-tab-it");
+  const tabAkiba = document.getElementById("x-tab-akiba");
+  const btnXOpen = document.getElementById("btn-x-open");
+
+  if (targetChannel === "it") {
+    if (tabIt) tabIt.classList.add("active");
+    if (tabAkiba) tabAkiba.classList.remove("active");
+    if (btnXOpen) btnXOpen.href = "https://x.com/search?q=%23IT%E3%83%8B%E3%83%A5%E3%83%BC%E3%82%B9&f=live";
+  } else {
+    if (tabAkiba) tabAkiba.classList.add("active");
+    if (tabIt) tabIt.classList.remove("active");
+    if (btnXOpen) btnXOpen.href = "https://x.com/search?q=%23%E7%A7%8B%E8%91%89%E5%8E%9F%20%E7%89%B9%E4%BE%A1&f=live";
+  }
+
+  renderXTimeline(targetChannel);
+}
+
+// 注目記事の自動巡回 (6秒ごと) - Xパネル用
 function initFeaturedRotation() {
-  if (featuredRotateTimer) clearInterval(featuredRotateTimer);
+  if (xFeaturedRotateTimer) clearInterval(xFeaturedRotateTimer);
 
-  featuredRotateTimer = setInterval(() => {
-    const items = newsFeedsData[currentNewsPane];
+  xFeaturedRotateTimer = setInterval(() => {
+    const items = xFeedsData[currentXChannel];
     if (items && items.length > 0) {
-      const maxCount = Math.min(5, items.length);
-      const nextIdx = (featuredIndices[currentNewsPane] + 1) % maxCount;
-      updateFeaturedDisplay(currentNewsPane, nextIdx);
+      const nextIdx = (xFeaturedIndices[currentXChannel] + 1) % items.length;
+      updateXFeaturedDisplay(currentXChannel, nextIdx);
     }
-  }, 6000); // 6秒ごとに次の記事へローテーション
+  }, 6000);
 }
 
-// 全フィードの最新データ取得
-async function loadFeeds() {
-  // 1. 最新IT・ガジェットニュース (GIZMODO Japan)
-  try {
-    const yahooItems = await fetchRssFeed(CONFIG.news.yahooRssUrl, "tech");
-    renderNewsChannel("yahoo-news-list", "yahoo-featured-box", yahooItems, "yahoo");
-  } catch (err) {
-    console.warn("ニュース取得リトライ/フォールバック:", err);
-    renderNewsChannel("yahoo-news-list", "yahoo-featured-box", [
-      { 
-        title: "iPhone / Galaxy / Pixelの最新カメラスペック徹底比較レビュー", 
-        source: "GIZMODO", 
-        link: "https://www.gizmodo.jp/", 
-        time: "最新",
-        thumbUrl: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=240&auto=format&fit=crop&q=80",
-        summary: "iPhone 17 Pro Max、Galaxy S25 Ultra、Pixel 10 Pro XLの動画性能やカメラ機能を徹底比較。各フラッグシップの強みが一目でわかります。"
-      },
-      { 
-        title: "「Wi-Fi 7 / 8」対応の超高速次世代ルーターが早くもアキバに登場", 
-        source: "テクノロジー", 
-        link: "https://www.gizmodo.jp/", 
-        time: "最新",
-        thumbUrl: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=240&auto=format&fit=crop&q=80",
-        summary: "最新規格Wi-Fi 7に対応した超高速ゲーミングルーターが秋葉原の各パーツショップに登場。実効スループットや通信安定性を検証。"
-      },
-      { 
-        title: "新型スマートウォッチ、睡眠計測＆AI音声認識機能が大幅アップデート", 
-        source: "ガジェット", 
-        link: "https://www.gizmodo.jp/", 
-        time: "最新",
-        thumbUrl: "https://images.unsplash.com/photo-1510017803434-a899398421b3?w=240&auto=format&fit=crop&q=80",
-        summary: "バッテリー持ちが向上し、生体センサーの精度が大幅に高まった最新スマートウォッチの実機レビューをお届けします。"
-      },
-      { 
-        title: "Google AIと最新スマートホームデバイスが連携、生活が劇的に便利に", 
-        source: "AI/テック", 
-        link: "https://www.gizmodo.jp/", 
-        time: "最新",
-        thumbUrl: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=240&auto=format&fit=crop&q=80",
-        summary: "Googleの最新生成AIとスマート家電が直接連携。音声による複雑な自動化ルーティンが自然な会話で実現します。"
-      },
-      { 
-        title: "超薄型OLED採用の次世代スマートポータブルディスプレイが発表", 
-        source: "新製品", 
-        link: "https://www.gizmodo.jp/", 
-        time: "最新",
-        thumbUrl: "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=240&auto=format&fit=crop&q=80",
-        summary: "高コントラストで省電力な有機ELパネルを搭載した最新モバイルモニター。iPadやPCのサブディスプレイとして極めて高い実用性を誇ります。"
-      }
-    ], "yahoo");
-  }
-
-  // 2. アキバ・自作PC特価情報 (ASCII.jp)
-  try {
-    const akibaItems = await fetchRssFeed(CONFIG.news.akibaRssUrl, "akiba");
-    renderNewsChannel("akiba-news-list", "akiba-featured-box", akibaItems, "akiba");
-  } catch (err) {
-    console.warn("アキバ特価情報リトライ/フォールバック:", err);
-    renderNewsChannel("akiba-news-list", "akiba-featured-box", [
-      { 
-        title: "大容量20TB HDD/高速4TB NVMe SSDが週末限定セールで大幅値下げ", 
-        source: "ASCII.jp", 
-        link: "https://ascii.jp/", 
-        time: "特価",
-        thumbUrl: "https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?w=240&auto=format&fit=crop&q=80",
-        summary: "秋葉原各店にて大容量ストレージが週末限定特価。高速PCIe Gen4/Gen5対応の4TB SSDやNAS向けHDDが大幅値下げ中です。"
-      },
-      { 
-        title: "人気ゲーミングコントローラーや周辺機器が最大30％オフのアキバ特価", 
-        source: "アキバ市況", 
-        link: "https://ascii.jp/", 
-        time: "セール",
-        thumbUrl: "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?w=240&auto=format&fit=crop&q=80",
-        summary: "「グランツーリスモ7」に最適な人気ハンコンや各社ゲーミングデバイスがセール中。数量限定の掘り出し物が多数入荷しています。"
-      },
-      { 
-        title: "最新RTXグラフィックボード＆Mini-ITXケースが店頭展示・販売開始", 
-        source: "パーツ速報", 
-        link: "https://ascii.jp/", 
-        time: "新入荷",
-        thumbUrl: "https://images.unsplash.com/photo-1563770660941-20978e870e26?w=240&auto=format&fit=crop&q=80",
-        summary: "コンパクトな自作PCに最適な省スペース設計のMini-ITXケースと高効率クーラー搭載ビデオカードがアキバ各店で販売開始。"
-      },
-      { 
-        title: "秋葉原各ショップ、今週末の数量限定ジャンク＆掘り出し物まとめ", 
-        source: "ASCII.jp", 
-        link: "https://ascii.jp/", 
-        time: "注目",
-        thumbUrl: "https://images.unsplash.com/photo-1544652478-6653e09f18a2?w=240&auto=format&fit=crop&q=80",
-        summary: "中古スマホ、液晶モニター、掘り出し物ジャンクPCパーツのセール情報を一挙紹介。秋葉原巡りの前に要チェックです。"
-      },
-      { 
-        title: "自作PC用高速DDR5メモリ＆水冷CPUクーラーの店頭タイムセール", 
-        source: "パーツ特価", 
-        link: "https://ascii.jp/", 
-        time: "タイムセール",
-        thumbUrl: "https://images.unsplash.com/photo-1587202372634-32705e3bf49c?w=240&auto=format&fit=crop&q=80",
-        summary: "冷却性能抜群の360mm簡易水冷キットとRGBライティング対応DDR5メモリが限定数特価で登場。週末の自作アップグレードに最適です。"
-      }
-    ], "akiba");
-  }
-}
-
-// 30秒ごとのフェードイン・フェードアウト切り替え機能
+// 30秒ごとのチャンネル自動切り替え & プログレスバー - Xパネル用
 function initFeedRotation() {
-  const tabYahoo = document.getElementById("news-tab-yahoo");
-  const tabAkiba = document.getElementById("news-tab-akiba");
-  const paneYahoo = document.getElementById("pane-yahoo");
-  const paneAkiba = document.getElementById("pane-akiba");
-  const timerBar = document.getElementById("feed-timer-bar");
+  const tabIt = document.getElementById("x-tab-it");
+  const tabAkiba = document.getElementById("x-tab-akiba");
+  const timerBar = document.getElementById("x-timer-bar");
 
-  const totalDuration = CONFIG.news.rotationSeconds; // 30秒
-
-  function switchPane(target) {
-    currentNewsPane = target;
-    if (target === "yahoo") {
-      paneYahoo.classList.add("active");
-      paneAkiba.classList.remove("active");
-      tabYahoo.classList.add("active");
-      tabAkiba.classList.remove("active");
-    } else {
-      paneAkiba.classList.add("active");
-      paneYahoo.classList.remove("active");
-      tabAkiba.classList.add("active");
-      tabYahoo.classList.remove("active");
-    }
-    // タブ切り替え時にそのチャンネルの現在の注目記事を表示
-    updateFeaturedDisplay(target, featuredIndices[target]);
+  if (tabIt) {
+    tabIt.addEventListener("click", () => switchXChannel("it"));
+  }
+  if (tabAkiba) {
+    tabAkiba.addEventListener("click", () => switchXChannel("akiba"));
   }
 
-  // プログレスバーと切り替えループ
+  const totalDuration = CONFIG.news.rotationSeconds || 30;
   const tickIntervalMs = 200;
   let progressMs = 0;
 
-  setInterval(() => {
+  if (xFeedRotationTimer) clearInterval(xFeedRotationTimer);
+
+  xFeedRotationTimer = setInterval(() => {
     progressMs += tickIntervalMs;
     const percent = Math.min((progressMs / (totalDuration * 1000)) * 100, 100);
     if (timerBar) timerBar.style.width = `${percent}%`;
 
     if (progressMs >= totalDuration * 1000) {
       progressMs = 0;
-      switchPane(currentNewsPane === "yahoo" ? "akiba" : "yahoo");
+      switchXChannel(currentXChannel === "it" ? "akiba" : "it");
     }
   }, tickIntervalMs);
+}
+
+
+/* =========================================================
+   6-2. IT/テック＆アキバ特価ニュース パネル (本格記事ニュース)
+   ========================================================= */
+let currentNewsChannel = "it";
+const newsFeaturedIndices = { it: 0, akiba: 0 };
+let newsFeaturedRotateTimer = null;
+let newsRotationTimer = null;
+
+function renderNewsPanel(channel) {
+  const items = xFeedsData[channel] || [];
+  const listEl = document.getElementById(channel === "it" ? "list-news-it" : "list-news-akiba");
+  const paneIt = document.getElementById("pane-news-it");
+  const paneAkiba = document.getElementById("pane-news-akiba");
+  const tabIt = document.getElementById("tab-news-it");
+  const tabAkiba = document.getElementById("tab-news-akiba");
+  const linkExt = document.getElementById("link-news-ext");
+
+  if (channel === "it") {
+    if (paneIt) paneIt.classList.add("active");
+    if (paneAkiba) paneAkiba.classList.remove("active");
+    if (tabIt) tabIt.classList.add("active");
+    if (tabAkiba) tabAkiba.classList.remove("active");
+    if (linkExt) linkExt.href = "https://www.gizmodo.jp";
+  } else {
+    if (paneAkiba) paneAkiba.classList.add("active");
+    if (paneIt) paneIt.classList.remove("active");
+    if (tabAkiba) tabAkiba.classList.add("active");
+    if (tabIt) tabIt.classList.remove("active");
+    if (linkExt) linkExt.href = "https://ascii.jp";
+  }
+
+  if (!listEl) return;
+
+  if (items.length === 0) {
+    listEl.innerHTML = `<li class="news-item"><div class="news-item-content">ニュースを取得中...</div></li>`;
+    return;
+  }
+
+  const activeIdx = newsFeaturedIndices[channel];
+
+  listEl.innerHTML = items.slice(0, 4).map((item, idx) => {
+    const url = item.link && item.link !== "#" ? escapeHtml(item.link) : "#";
+    const isAct = (idx === activeIdx);
+    return `
+      <li class="news-item ${isAct ? "featured-active" : ""}" id="news-item-${channel}-${idx}">
+        <a href="${url}" target="_blank" rel="noopener noreferrer" class="news-item-link" onclick="onNewsItemClick('${channel}', ${idx}, event)">
+          <div class="news-item-thumb-wrap">
+            <img src="${escapeHtml(item.thumbUrl)}" class="news-item-thumb" alt="サムネイル" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1518770660439-4636190af475?w=240&auto=format&fit=crop&q=80';">
+          </div>
+          <div class="news-item-content">
+            <div class="news-item-title">${escapeHtml(item.title)}</div>
+            <div class="news-item-meta">
+              <span class="news-source-tag">${escapeHtml(item.authorName)}</span>
+              <span class="news-item-time">${item.time}</span>
+            </div>
+          </div>
+          <span class="news-open-icon">↗</span>
+        </a>
+      </li>
+    `;
+  }).join("");
+
+  updateNewsFeaturedBox(channel, activeIdx);
+}
+
+function updateNewsFeaturedBox(channel, index) {
+  const items = xFeedsData[channel] || [];
+  if (items.length === 0) return;
+
+  const validIdx = index % items.length;
+  newsFeaturedIndices[channel] = validIdx;
+  const item = items[validIdx];
+
+  const featuredEl = document.getElementById(channel === "it" ? "featured-news-it" : "featured-news-akiba");
+  if (!featuredEl || !item) return;
+
+  const fUrl = item.link && item.link !== "#" ? escapeHtml(item.link) : "#";
+  featuredEl.innerHTML = `
+    <a href="${fUrl}" target="_blank" rel="noopener noreferrer" class="news-featured-link">
+      <div class="news-featured-content">
+        <div class="news-featured-title">${escapeHtml(item.title)}</div>
+        <p class="news-featured-summary">${escapeHtml(item.summary)}</p>
+        <div class="news-featured-meta-row">
+          <span class="news-source-tag">${escapeHtml(item.authorName)}</span>
+          <span class="news-item-time">${item.time}</span>
+          <span class="news-featured-more">記事を読む ↗</span>
+        </div>
+      </div>
+      <div class="news-featured-thumb-wrap">
+        <img src="${escapeHtml(item.thumbUrl)}" class="news-featured-thumb" alt="注目写真" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1518770660439-4636190af475?w=240&auto=format&fit=crop&q=80';">
+      </div>
+    </a>
+  `;
+
+  // リストのハイライト更新
+  for (let i = 0; i < 4; i++) {
+    const el = document.getElementById(`news-item-${channel}-${i}`);
+    if (el) {
+      if (i === validIdx) el.classList.add("featured-active");
+      else el.classList.remove("featured-active");
+    }
+  }
+}
+
+window.onNewsItemClick = function(channel, index, event) {
+  updateNewsFeaturedBox(channel, index);
+};
+
+function switchNewsChannel(targetChannel) {
+  currentNewsChannel = targetChannel;
+  renderNewsPanel(targetChannel);
+}
+
+function initNewsFeedRotation() {
+  const tabIt = document.getElementById("tab-news-it");
+  const tabAkiba = document.getElementById("tab-news-akiba");
+  const timerBar = document.getElementById("news-timer-bar");
+
+  if (tabIt) {
+    tabIt.addEventListener("click", () => switchNewsChannel("it"));
+  }
+  if (tabAkiba) {
+    tabAkiba.addEventListener("click", () => switchNewsChannel("akiba"));
+  }
+
+  const totalDuration = CONFIG.news.rotationSeconds || 30;
+  const tickIntervalMs = 200;
+  let progressMs = 0;
+
+  if (newsRotationTimer) clearInterval(newsRotationTimer);
+
+  newsRotationTimer = setInterval(() => {
+    progressMs += tickIntervalMs;
+    const percent = Math.min((progressMs / (totalDuration * 1000)) * 100, 100);
+    if (timerBar) timerBar.style.width = `${percent}%`;
+
+    if (progressMs >= totalDuration * 1000) {
+      progressMs = 0;
+      switchNewsChannel(currentNewsChannel === "it" ? "akiba" : "it");
+    }
+  }, tickIntervalMs);
+
+  // 注目記事巡回 (6秒ごと)
+  if (newsFeaturedRotateTimer) clearInterval(newsFeaturedRotateTimer);
+  newsFeaturedRotateTimer = setInterval(() => {
+    const items = xFeedsData[currentNewsChannel];
+    if (items && items.length > 0) {
+      const nextIdx = (newsFeaturedIndices[currentNewsChannel] + 1) % items.length;
+      updateNewsFeaturedBox(currentNewsChannel, nextIdx);
+    }
+  }, 6000);
+}
+
+// 全フィードの最新データ取得
+async function loadFeeds() {
+  // 1. IT系速報
+  try {
+    const itItems = await fetchRssFeed(CONFIG.news.itRssUrl || "https://www.gizmodo.jp/index.xml", "tech");
+    xFeedsData.it = itItems;
+  } catch (err) {
+    console.warn("IT系フィードフォールバック:", err);
+    xFeedsData.it = [
+      {
+        title: "次世代AIチップ搭載PCと新型ハイエンドデバイスが続々発表",
+        authorName: "ギズモード・ジャパン",
+        authorHandle: "@gizmodojapan",
+        authorIcon: "🌐",
+        link: "https://www.gizmodo.jp/",
+        time: "最新",
+        thumbUrl: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=240&auto=format&fit=crop&q=80",
+        summary: "最新世代AIチップを搭載した高性能PCや革新的デバイスの実機レビューをお届けします。",
+        reposts: 88,
+        likes: 312
+      },
+      {
+        title: "「Wi-Fi 7」対応の次世代高速ルーター、実効通信速度を徹底検証",
+        authorName: "ITmedia NEWS",
+        authorHandle: "@itmedia_news",
+        authorIcon: "💻",
+        link: "https://www.itmedia.co.jp/",
+        time: "最新",
+        thumbUrl: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=240&auto=format&fit=crop&q=80",
+        summary: "最新規格Wi-Fi 7に対応した超高速ルーターが登場。通信安定性とレイテンシを徹底測定。",
+        reposts: 54,
+        likes: 198
+      },
+      {
+        title: "Google AIとスマート家電連携、音声ルーティンがさらに自然に進化",
+        authorName: "テクノロジー速報",
+        authorHandle: "@tech_news_jp",
+        authorIcon: "🚀",
+        link: "https://www.gizmodo.jp/",
+        time: "最新",
+        thumbUrl: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=240&auto=format&fit=crop&q=80",
+        summary: "最新生成AIとスマートホームの直接連動により、日々の生活ルーティンが自然な会話で自動化されます。",
+        reposts: 120,
+        likes: 460
+      }
+    ];
+  }
+
+  // 2. 秋葉原・自作PC特価速報
+  try {
+    const akibaItems = await fetchRssFeed(CONFIG.news.akibaRssUrl || "https://ascii.jp/rss.xml", "akiba");
+    xFeedsData.akiba = akibaItems;
+  } catch (err) {
+    console.warn("アキバ系フィードフォールバック:", err);
+    xFeedsData.akiba = [
+      {
+        title: "大容量20TB HDD & 4TB NVMe SSDが秋葉原店頭で週末限定特価",
+        authorName: "ASCII.jp アキバ",
+        authorHandle: "@ascii_akiba",
+        authorIcon: "⚡",
+        link: "https://ascii.jp/",
+        time: "特価",
+        thumbUrl: "https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?w=240&auto=format&fit=crop&q=80",
+        summary: "秋葉原各店にて大容量ストレージが週末限定特価。PCIe Gen4対応SSDが大幅値引き中。",
+        reposts: 142,
+        likes: 520
+      },
+      {
+        title: "最新RTXグラフィックボード＆Mini-ITX小型ケースの店頭販売開始",
+        authorName: "エルミタージュ秋葉原",
+        authorHandle: "@hermita_akiba",
+        authorIcon: "🏢",
+        link: "https://www.gdm.or.jp/",
+        time: "新入荷",
+        thumbUrl: "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?w=240&auto=format&fit=crop&q=80",
+        summary: "省スペースな自作PCに最適なMini-ITXケースと高冷却グラフィックスカードが入荷しました。",
+        reposts: 76,
+        likes: 240
+      },
+      {
+        title: "秋葉原各ショップ、今週末の数量限定ジャンク＆掘り出し物まとめ",
+        authorName: "AKIBA PC Hotline!",
+        authorHandle: "@akiba_hotline",
+        authorIcon: "🛒",
+        link: "https://akiba-pc.watch.impress.co.jp/",
+        time: "注目",
+        thumbUrl: "https://images.unsplash.com/photo-1544652478-6653e09f18a2?w=240&auto=format&fit=crop&q=80",
+        summary: "中古スマートデバイス、液晶モニター、自作PCパーツの特価セール情報を一挙紹介。",
+        reposts: 110,
+        likes: 380
+      }
+    ];
+  }
+
+  renderXTimeline(currentXChannel);
+  renderNewsPanel(currentNewsChannel);
 }
 
 function escapeHtml(str) {
@@ -1413,13 +1754,19 @@ function loadSavedSettings() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const saved = JSON.parse(raw);
-      if (saved.calendarUrl) CONFIG.calendar.embedUrl = extractUrlOrClean(saved.calendarUrl);
-      // 妻 & 娘のGoogleマップURL
+      if (saved.calendarUrl) CONFIG.calendar.embedUrl = ensureCalendarAgendaMode(extractUrlOrClean(saved.calendarUrl));
+      
+      // 現在位置のGoogleマップURL & 家族の現在地共有URL
+      if (saved.mapCurrentUrl) CONFIG.map.currentLocationUrl = extractUrlOrClean(saved.mapCurrentUrl);
+      else if (saved.mapUrl) CONFIG.map.currentLocationUrl = extractUrlOrClean(saved.mapUrl);
       if (saved.mapWifeUrl) CONFIG.map.wifeEmbedUrl = extractUrlOrClean(saved.mapWifeUrl);
-      else if (saved.mapUrl) CONFIG.map.wifeEmbedUrl = extractUrlOrClean(saved.mapUrl); // 互換性
       if (saved.mapDaughterUrl) CONFIG.map.daughterEmbedUrl = extractUrlOrClean(saved.mapDaughterUrl);
 
       // YouTube & Premium
+      if (saved.youtubeDefaultMode) {
+        CONFIG.youtube.defaultMode = saved.youtubeDefaultMode;
+        CONFIG.youtube.currentMode = saved.youtubeDefaultMode;
+      }
       if (typeof saved.youtubeIsPremium === "boolean") CONFIG.youtube.isPremium = saved.youtubeIsPremium;
       else if (typeof saved.isPremium === "boolean") CONFIG.youtube.isPremium = saved.isPremium;
 
@@ -1449,10 +1796,10 @@ function initSettingsModal() {
   const modal = document.getElementById("settings-modal");
 
   const inputCal = document.getElementById("cfg-calendar-url");
-  const inputMapWife = document.getElementById("cfg-map-wife-url");
-  const inputMapDaughter = document.getElementById("cfg-map-daughter-url");
+  const inputMapCurrent = document.getElementById("cfg-map-current-url");
   const checkYtPremium = document.getElementById("cfg-youtube-premium");
   const inputGoogleAccount = document.getElementById("cfg-google-account");
+  const selectYtDefaultMode = document.getElementById("cfg-youtube-default-mode");
   const selectYtGenre = document.getElementById("cfg-youtube-genre");
   const inputYtCustom = document.getElementById("cfg-youtube-custom-ids");
   const inputLocName = document.getElementById("cfg-current-loc-name");
@@ -1521,10 +1868,10 @@ function initSettingsModal() {
 
   function openModal() {
     if (inputCal) inputCal.value = CONFIG.calendar.embedUrl || "";
-    if (inputMapWife) inputMapWife.value = CONFIG.map.wifeEmbedUrl || "";
-    if (inputMapDaughter) inputMapDaughter.value = CONFIG.map.daughterEmbedUrl || "";
+    if (inputMapCurrent) inputMapCurrent.value = CONFIG.map.currentLocationUrl || "";
     if (checkYtPremium) checkYtPremium.checked = !!CONFIG.youtube.isPremium;
     if (inputGoogleAccount) inputGoogleAccount.value = CONFIG.youtube.googleAccount || "";
+    if (selectYtDefaultMode) selectYtDefaultMode.value = CONFIG.youtube.defaultMode || "weather";
     if (selectYtGenre) selectYtGenre.value = CONFIG.youtube.genre || "all_mix";
     if (inputYtCustom) inputYtCustom.value = (CONFIG.youtube.customVideoIds || []).join(", ");
     if (inputLocName) inputLocName.value = CONFIG.weather.currentLocationName || "";
@@ -1560,9 +1907,9 @@ function initSettingsModal() {
       const customList = rawCustom ? rawCustom.split(",").map(s => s.trim()).filter(s => s.length > 0) : [];
 
       const newSettings = {
-        calendarUrl: inputCal ? extractUrlOrClean(inputCal.value) : "",
-        mapWifeUrl: inputMapWife ? extractUrlOrClean(inputMapWife.value) : "",
-        mapDaughterUrl: inputMapDaughter ? extractUrlOrClean(inputMapDaughter.value) : "",
+        calendarUrl: inputCal ? ensureCalendarAgendaMode(extractUrlOrClean(inputCal.value)) : "",
+        mapCurrentUrl: inputMapCurrent ? extractUrlOrClean(inputMapCurrent.value) : "",
+        youtubeDefaultMode: selectYtDefaultMode ? selectYtDefaultMode.value : "weather",
         youtubeIsPremium: checkYtPremium ? checkYtPremium.checked : true,
         googleAccount: inputGoogleAccount ? inputGoogleAccount.value.trim() : "",
         adFreeMode: true,
@@ -1585,7 +1932,7 @@ function applyImportedJsonConfig(parsed) {
   if (!parsed || typeof parsed !== "object") return;
   const currentSettings = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
 
-  // 1. カレンダー (様々なキー名やiframeタグ貼り付けに対応)
+  // 1. カレンダー
   let calVal = "";
   if (parsed.calendar && typeof parsed.calendar === "object") {
     calVal = parsed.calendar.embedUrl || parsed.calendar.url || parsed.calendar.src || "";
@@ -1595,38 +1942,29 @@ function applyImportedJsonConfig(parsed) {
   if (!calVal) {
     calVal = parsed.calendarUrl || parsed.calendar_url || parsed.calendarEmbedUrl || "";
   }
-  if (calVal) currentSettings.calendarUrl = extractUrlOrClean(calVal);
+  if (calVal) currentSettings.calendarUrl = ensureCalendarAgendaMode(extractUrlOrClean(calVal));
 
-  // 2. マップ / 家族の位置情報 (妻 & 娘の柔軟なキー名対応)
-  let wifeVal = "";
-  let daughterVal = "";
-
+  // 2. マップ (現在位置のGoogleマップ & 家族共有)
+  let mapVal = "";
   if (parsed.map && typeof parsed.map === "object") {
-    wifeVal = parsed.map.wifeEmbedUrl || parsed.map.wifeUrl || parsed.map.wife || parsed.map.wife_embed_url || parsed.map.wife_url || parsed.map.wifeLocation || "";
-    daughterVal = parsed.map.daughterEmbedUrl || parsed.map.daughterUrl || parsed.map.daughter || parsed.map.daughter_embed_url || parsed.map.daughter_url || parsed.map.daughterLocation || "";
+    mapVal = parsed.map.currentLocationUrl || parsed.map.currentUrl || parsed.map.url || parsed.map.embedUrl || "";
+  } else if (typeof parsed.map === "string") {
+    mapVal = parsed.map;
   }
-  if (!wifeVal) {
-    wifeVal = parsed.mapWifeUrl || parsed.mapWife || parsed.wifeEmbedUrl || parsed.wifeUrl || parsed.wife || "";
+  if (!mapVal) {
+    mapVal = parsed.mapCurrentUrl || parsed.mapUrl || parsed.currentLocationUrl || "";
   }
-  if (!daughterVal) {
-    daughterVal = parsed.mapDaughterUrl || parsed.mapDaughter || parsed.daughterEmbedUrl || parsed.daughterUrl || parsed.daughter || "";
-  }
+  if (mapVal) currentSettings.mapCurrentUrl = extractUrlOrClean(mapVal);
 
-  // family または location キーでの記述にもフォールバック対応
-  if (parsed.family && typeof parsed.family === "object") {
-    if (!wifeVal) wifeVal = parsed.family.wifeUrl || parsed.family.wife || parsed.family.wifeEmbedUrl || "";
-    if (!daughterVal) daughterVal = parsed.family.daughterUrl || parsed.family.daughter || parsed.family.daughterEmbedUrl || "";
-  }
-  if (parsed.location && typeof parsed.location === "object") {
-    if (!wifeVal) wifeVal = parsed.location.wifeUrl || parsed.location.wife || parsed.location.wifeEmbedUrl || "";
-    if (!daughterVal) daughterVal = parsed.location.daughterUrl || parsed.location.daughter || parsed.location.daughterEmbedUrl || "";
-  }
-
+  let wifeVal = (parsed.map && parsed.map.wifeEmbedUrl) || parsed.mapWifeUrl || parsed.wifeEmbedUrl || "";
   if (wifeVal) currentSettings.mapWifeUrl = extractUrlOrClean(wifeVal);
+
+  let daughterVal = (parsed.map && parsed.map.daughterEmbedUrl) || parsed.mapDaughterUrl || parsed.daughterEmbedUrl || "";
   if (daughterVal) currentSettings.mapDaughterUrl = extractUrlOrClean(daughterVal);
 
   // 3. YouTube & Premium
   if (parsed.youtube && typeof parsed.youtube === "object") {
+    if (parsed.youtube.defaultMode) currentSettings.youtubeDefaultMode = parsed.youtube.defaultMode;
     if (typeof parsed.youtube.isPremium === "boolean") currentSettings.youtubeIsPremium = parsed.youtube.isPremium;
     if (parsed.youtube.googleAccount) currentSettings.googleAccount = parsed.youtube.googleAccount.trim();
     if (parsed.youtube.email) currentSettings.googleAccount = parsed.youtube.email.trim();
@@ -1634,6 +1972,7 @@ function applyImportedJsonConfig(parsed) {
     if (parsed.youtube.genre) currentSettings.youtubeGenre = parsed.youtube.genre;
     if (Array.isArray(parsed.youtube.customVideoIds)) currentSettings.youtubeCustomIds = parsed.youtube.customVideoIds;
   }
+  if (parsed.youtubeDefaultMode) currentSettings.youtubeDefaultMode = parsed.youtubeDefaultMode;
   if (parsed.googleAccount) currentSettings.googleAccount = parsed.googleAccount.trim();
   if (typeof parsed.youtubeIsPremium === "boolean") currentSettings.youtubeIsPremium = parsed.youtubeIsPremium;
   if (typeof parsed.isPremium === "boolean") currentSettings.youtubeIsPremium = parsed.isPremium;
@@ -1664,8 +2003,7 @@ function exportCurrentConfigToJson() {
       embedUrl: CONFIG.calendar.embedUrl || ""
     },
     map: {
-      wifeEmbedUrl: CONFIG.map.wifeEmbedUrl || "",
-      daughterEmbedUrl: CONFIG.map.daughterEmbedUrl || ""
+      currentLocationUrl: CONFIG.map.currentLocationUrl || ""
     },
     weather: {
       currentLocationName: CONFIG.weather.currentLocationName || "",
@@ -1673,6 +2011,7 @@ function exportCurrentConfigToJson() {
       openWeatherApiKey: (CONFIG.weather.openWeatherApiKey !== "YOUR_OPENWEATHER_API_KEY") ? (CONFIG.weather.openWeatherApiKey || "") : ""
     },
     youtube: {
+      defaultMode: CONFIG.youtube.defaultMode || "weather",
       isPremium: !!CONFIG.youtube.isPremium,
       googleAccount: CONFIG.youtube.googleAccount || "",
       adFreeMode: (CONFIG.youtube.adFreeMode !== undefined) ? !!CONFIG.youtube.adFreeMode : true,
@@ -1814,6 +2153,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   loadFeeds();
   initFeedRotation();
   initFeaturedRotation(); // 注目記事(大きな図+要約)の6秒自動ローテーション
+  initNewsFeedRotation(); // ニュースパネルの30秒自動ローテーション & 6秒巡回
   setInterval(loadFeeds, CONFIG.news.refreshIntervalMinutes * 60 * 1000);
 
   // 5. 設定モーダル初期化

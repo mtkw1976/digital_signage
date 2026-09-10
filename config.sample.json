@@ -2,14 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Smart Digital Signage Configuration",
   "description": "iPadスマートサイネージ用設定ファイル。PCでこのファイルを編集後、iPadの設定画面(⚙️)から「設定JSONファイルを読み込む」で読み込むことができます。",
-  "_comment_calendar": "Googleカレンダーの埋め込みURL。Googleカレンダー設定 >「マイカレンダーの設定」>「カレンダーの統合」にある埋め込みコード（src=...のURL）を貼り付けてください。※iPadで「Cookieへのアクセス許可」と表示される場合は、iPad本体の【設定】>【Safari】>【「サイト越えトラッキングを防ぐ」】をOFFにすると解決します（YouTube PremiumのCM非表示も同時に有効化されます）。",
+  "_comment_calendar": "Googleカレンダーの埋め込みURL。Googleカレンダー設定 >「マイカレンダーの設定」>「カレンダーの統合」にある埋め込みコード（src=...のURL）を貼り付けてください。末尾に &mode=AGENDA を指定するとスケジュール表示になります（本サイネージ側でも自動的にスケジュール表示へ変換されます）。※iPadで「Cookieへのアクセス許可」と表示される場合は、iPad本体の【設定】>【Safari】>【「サイト越えトラッキングを防ぐ」】をOFFにすると解決します。",
   "calendar": {
-    "embedUrl": "https://calendar.google.com/calendar/embed?src=YOUR_CALENDAR_ID%40group.calendar.google.com&ctz=Asia%2FTokyo"
+    "embedUrl": "https://calendar.google.com/calendar/embed?src=YOUR_CALENDAR_ID%40group.calendar.google.com&ctz=Asia%2FTokyo&mode=AGENDA"
   },
-  "_comment_map": "Googleマップの位置情報。奥様とお嬢様の「現在地共有リンク」(https://maps.app.goo.gl/...)、住所(例: 品川区大崎)、座標、または埋め込みURLを設定できます。現在地共有リンクを設定すると、サイネージ上に「現在地を開く」ボタンが常時表示され、1タップでGoogleマップでリアルタイム位置を確認できます。",
+  "_comment_map": "Googleマップの位置情報。currentLocationUrl が空欄の場合は端末のGPSから自動的に現在地の地図を表示します。手動で特定の住所（例: 品川区大崎）や座標、Googleマップ埋め込みURLを設定することも可能です。",
   "map": {
-    "wifeEmbedUrl": "https://maps.app.goo.gl/sample_wife_link",
-    "daughterEmbedUrl": "https://maps.app.goo.gl/sample_daughter_link"
+    "currentLocationUrl": ""
   },
   "_comment_weather": "天気予報設定。currentLocationName を空文字にしておくと、GPSから自動的に地名（例: 品川区、横浜市中区など）を判別して表示します。手動で地名を固定したい場合は「港区」「大阪市」などと入力してください。",
   "weather": {

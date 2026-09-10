@@ -61,12 +61,16 @@ html, body {
   padding: var(--gap-size);
   gap: var(--gap-size);
   
-  /* 4列 × 2行 のグリッド定義 (ニュース & YouTubeは横2マス結合) */
-  grid-template-columns: 1.05fr 1fr 1fr 1.05fr;
-  grid-template-rows: 1fr 1.12fr;
+  /* 3列 × 2行 のグリッド定義 (全6パネル構成)
+     列1: 上段 [時計 & スケジュール (1枚)] / 下段 [X専用速報タイムライン (1枚)]
+     列2: 上段 [YouTube (おすすめ & 天気Live)] / 下段 [IT/テック＆アキバ特価ニュース (1枚)]
+     列3: 上段 [天気予報 (1枚)] / 下段 [現在位置Googleマップ (1枚)]
+  */
+  grid-template-columns: 1.05fr 1.35fr 1.05fr;
+  grid-template-rows: 1fr 1fr;
   grid-template-areas:
-    "clock    news      news      calendar"
-    "weather  youtube   youtube   map";
+    "clock-sched  youtube  weather"
+    "x-feed       news     map";
 }
 
 /* タイル共通スタイル */
@@ -123,13 +127,72 @@ html, body {
 }
 
 /* =========================================================
-   1. 時計・日付タイル
+   1. 時計 & スケジュール統合タイル
    ========================================================= */
-.tile-clock {
-  grid-area: clock;
+.tile-clock,
+.tile-clock-schedule {
+  grid-area: clock-sched;
   display: flex;
   flex-direction: column;
-  padding: 10px 12px;
+  padding: 8px 10px;
+}
+
+.header-right-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.calendar-external-btn {
+  font-size: 0.72rem;
+  color: var(--accent-blue);
+  text-decoration: none;
+  background: rgba(59, 130, 246, 0.12);
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  transition: all 0.2s ease;
+}
+
+.calendar-external-btn:hover {
+  background: rgba(59, 130, 246, 0.25);
+  color: #fff;
+}
+
+.clock-schedule-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.clock-compact-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px 6px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.schedule-compact-wrap {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border-radius: var(--radius-inner);
+  overflow: hidden;
+  background: #0d1117;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.calendar-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
 }
 
 .live-dot {
@@ -156,22 +219,22 @@ html, body {
 }
 
 .date-display {
-  font-size: clamp(0.95rem, 1.8vw, 1.35rem);
+  font-size: clamp(0.75rem, 1.1vw, 0.88rem);
   font-weight: 600;
   color: var(--text-secondary);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   letter-spacing: 0.02em;
   white-space: nowrap;
 }
 
 .time-display {
   font-family: 'JetBrains Mono', monospace;
-  font-size: clamp(2.8rem, 5.8vw, 4.2rem);
+  font-size: clamp(1.8rem, 3.2vw, 2.5rem);
   font-weight: 900;
   color: var(--text-primary);
   line-height: 1;
   letter-spacing: -0.02em;
-  text-shadow: 0 0 32px rgba(56, 189, 248, 0.4);
+  text-shadow: 0 0 24px rgba(56, 189, 248, 0.35);
   display: flex;
   align-items: baseline;
   justify-content: center;
@@ -180,9 +243,9 @@ html, body {
 }
 
 .seconds-display {
-  font-size: 0.38em;
+  font-size: 0.42em;
   color: var(--accent-cyan);
-  margin-left: 4px;
+  margin-left: 3px;
   font-weight: 700;
   letter-spacing: 0;
 }
@@ -670,6 +733,63 @@ html, body {
 
 .tile-map {
   grid-area: map;
+  display: flex;
+  flex-direction: column;
+}
+
+.map-loc-name-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--accent-green);
+  background: rgba(74, 222, 128, 0.12);
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(74, 222, 128, 0.25);
+}
+
+.map-open-link {
+  font-size: 0.72rem;
+  color: var(--accent-blue);
+  text-decoration: none;
+  background: rgba(59, 130, 246, 0.12);
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  transition: all 0.2s ease;
+}
+
+.map-open-link:hover {
+  background: rgba(59, 130, 246, 0.25);
+  color: #fff;
+}
+
+.map-sharing-hub-btn {
+  font-size: 0.72rem;
+  color: var(--accent-green);
+  text-decoration: none;
+  background: rgba(74, 222, 128, 0.12);
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.map-sharing-hub-btn:hover {
+  background: rgba(74, 222, 128, 0.25);
+  color: #fff;
+}
+
+.map-body {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border-radius: var(--radius-inner);
+  overflow: hidden;
+  background: #0d1117;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .calendar-body {
@@ -682,7 +802,7 @@ html, body {
   background: #0d1117;
 }
 
-/* マップ上下2分割コンテナ */
+/* マップ上下2分割コンテナ (後方互換) */
 .map-split-container {
   display: flex;
   flex-direction: column;
@@ -781,6 +901,43 @@ html, body {
   gap: 10px;
 }
 
+.yt-mode-selector {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.yt-mode-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.yt-mode-btn:hover {
+  color: var(--text-primary);
+}
+
+.yt-mode-btn.active {
+  background: #ef4444;
+  color: #fff;
+  box-shadow: 0 1px 4px rgba(239, 68, 68, 0.4);
+}
+
+.yt-mode-btn#btn-yt-mode-recommend.active {
+  background: var(--accent-cyan);
+  color: #0b0f19;
+  box-shadow: 0 1px 4px rgba(56, 189, 248, 0.4);
+}
+
 .yt-genre-badge {
   font-size: 0.68rem;
   font-weight: 600;
@@ -874,11 +1031,422 @@ html, body {
 }
 
 /* =========================================================
-   6. Yahoo!ニュース & 特価情報 (30秒フェードローテーション)
+   6. 𝕏 (旧Twitter) パネル - IT・秋葉原速報タイムライン
    ========================================================= */
+.tile-x-feed {
+  grid-area: x-feed;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.x-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.x-brand-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1;
+}
+
+.x-feed-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+}
+
+.x-tab-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.x-tab-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.x-tab-btn.active {
+  background: #fff;
+  color: #000;
+  border-color: #fff;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.2);
+}
+
+.x-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.x-open-btn {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: all 0.2s ease;
+}
+
+.x-open-btn:hover {
+  background: #fff;
+  color: #000;
+  border-color: #fff;
+}
+
+.x-feed-body {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.x-timeline-pane {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.x-featured-card {
+  display: none;
+}
+
+.x-posts-stream {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
+}
+
+/* スクロールバー非表示・サイネージ用 */
+.x-posts-stream::-webkit-scrollbar {
+  display: none;
+}
+
+/* X ポストカード */
+.x-post-card {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.x-post-card:hover,
+.x-post-card.active-featured {
+  background: rgba(56, 189, 248, 0.08);
+  border-color: rgba(56, 189, 248, 0.35);
+  transform: translateX(2px);
+}
+
+.x-post-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #1e293b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.x-post-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.x-post-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.x-post-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.x-author-name {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.x-verified-badge {
+  color: var(--accent-cyan);
+  font-size: 0.72rem;
+}
+
+.x-author-handle {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+.x-post-time {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  margin-left: auto;
+}
+
+.x-post-text {
+  font-size: 0.78rem;
+  color: #e2e8f0;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.x-post-hashtag {
+  color: var(--accent-cyan);
+  font-weight: 500;
+}
+
+.x-post-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 2px;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+.x-action-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* X 注目ピックアップカード (右側ペイン) */
+.x-featured-card {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: all 0.4s ease;
+}
+
+.x-featured-thumb-wrap {
+  width: 100%;
+  height: 52%;
+  position: relative;
+  overflow: hidden;
+  background: #000;
+}
+
+.x-featured-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.x-featured-card:hover .x-featured-thumb {
+  transform: scale(1.04);
+}
+
+.x-featured-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.x-featured-content {
+  flex: 1;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.x-featured-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.x-featured-summary {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.x-featured-footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.x-featured-source {
+  font-size: 0.68rem;
+  color: var(--accent-orange);
+  font-weight: 600;
+}
+
+.x-featured-link {
+  font-size: 0.68rem;
+  color: var(--accent-cyan);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.x-loading-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  gap: 8px;
+}
+
+.x-loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--accent-cyan);
+  border-radius: 50%;
+  animation: spin 0.8s infinite linear;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .tile-news {
   grid-area: news;
   padding: 8px 10px;
+}
+
+.news-brand-icon {
+  font-size: 0.95rem;
+}
+
+.news-feed-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 4px;
+}
+
+.news-tab-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.news-tab-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.news-tab-btn.active {
+  background: var(--accent-orange);
+  color: #fff;
+  border-color: var(--accent-orange);
+  box-shadow: 0 1px 6px rgba(251, 146, 60, 0.35);
+}
+
+.news-ext-link {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: all 0.2s ease;
+}
+
+.news-ext-link:hover {
+  background: #fff;
+  color: #000;
+  border-color: #fff;
 }
 
 .feed-tabs {
@@ -1500,10 +2068,10 @@ html, body {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto;
     grid-template-areas:
-      "clock    weather"
-      "news     calendar"
-      "youtube  youtube"
-      "map      map";
+      "clock-sched weather"
+      "x-feed      news"
+      "youtube     youtube"
+      "map         map";
     overflow-y: auto;
     height: auto;
     min-height: 100vh;
