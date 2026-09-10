@@ -10,6 +10,10 @@
   "map": {
     "currentLocationUrl": ""
   },
+  "_comment_xTimeline": "𝕏 (Twitter) マイタイムライン設定。ご自身のアカウントID（例: @username）または、フォロー中アカウントをまとめた公開リストのURL（例: https://x.com/i/lists/123456789）を設定してください。公式Widgets APIにより最新タイムラインが自動描画されます。",
+  "xTimeline": {
+    "accountOrUrl": ""
+  },
   "_comment_weather": "天気予報設定。currentLocationName を空文字にしておくと、GPSから自動的に地名（例: 品川区、横浜市中区など）を判別して表示します。手動で地名を固定したい場合は「港区」「大阪市」などと入力してください。",
   "weather": {
     "currentLocationName": "",

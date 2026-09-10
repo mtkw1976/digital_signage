@@ -250,38 +250,29 @@
       </div>
     </section>
 
-    <!-- タイル5: X (旧Twitter) パネル - IT系 & 秋葉系ニュース速報 -->
+    <!-- タイル5: X (旧Twitter) パネル - マイタイムライン -->
     <section class="tile tile-x-feed" id="tile-x-feed">
       <div class="tile-header">
         <div class="x-header-left">
           <span class="x-brand-logo">𝕏</span>
-          <span class="tile-title">速報タイムライン</span>
-          <div class="x-feed-tabs">
-            <button class="x-tab-btn active" id="x-tab-it" data-channel="it">💻 IT・テック</button>
-            <span class="tab-separator">|</span>
-            <button class="x-tab-btn" id="x-tab-akiba" data-channel="akiba">⚡ 秋葉原・PC特価</button>
-          </div>
+          <span class="tile-title">タイムライン</span>
+          <span class="x-account-badge" id="x-account-badge">@未設定</span>
         </div>
         <div class="x-header-right">
-          <div class="feed-timer-bar-wrap">
-            <div class="feed-timer-bar" id="x-timer-bar"></div>
-          </div>
-          <a href="https://x.com" target="_blank" rel="noopener noreferrer" class="x-open-btn" id="btn-x-open" title="Xでタイムラインを開く">𝕏 を開く ↗</a>
+          <a href="https://x.com/home" target="_blank" rel="noopener noreferrer" class="x-open-btn" id="btn-x-open" title="Xでホームタイムラインを開く">マイTL ↗</a>
         </div>
       </div>
       <div class="x-feed-body">
-        <!-- タイムライン投稿一覧ペイン -->
-        <div class="x-timeline-pane" id="x-timeline-pane">
-          <div class="x-posts-stream" id="x-posts-stream">
-            <div class="x-loading-placeholder">
-              <div class="x-loading-spinner"></div>
-              <span>最新のポストを取得中...</span>
-            </div>
+        <!-- X公式タイムラインウィジェット描画エリア -->
+        <div class="x-timeline-widget-wrap" id="x-timeline-widget-wrap"></div>
+        <!-- 未設定時の設定案内カード -->
+        <div class="x-unconfigured-card hidden" id="x-unconfigured-card">
+          <div class="x-unconfigured-content">
+            <span class="x-unconfigured-icon">𝕏</span>
+            <p><strong>あなたのアカウントのタイムラインを表示</strong></p>
+            <small>右上の ⚙️ 設定から、ご自身のXアカウント名（@ユーザー名）またはリストURLを登録してください。</small>
+            <button type="button" class="btn-x-setup" id="btn-x-setup">⚙️ Xアカウントを設定する</button>
           </div>
-        </div>
-        <!-- 下部: 注目ピックアップポスト領域 (大きな図と詳細要約) -->
-        <div class="x-featured-card" id="x-featured-card">
-          <div class="x-loading-placeholder">要約を準備中...</div>
         </div>
       </div>
     </section>
@@ -374,6 +365,19 @@
           <small>※空欄の場合は端末のGPSから自動的に現在地地図を表示します。</small>
         </div>
 
+        <div class="form-group">
+          <label for="cfg-x-account">𝕏 (Twitter) アカウント名 または リストURL</label>
+          <input type="text" id="cfg-x-account" placeholder="例: @your_account または https://x.com/i/lists/...">
+          <small>※ご自身のアカウント名（@ユーザー名）または、フォロー中をまとめたリストのURLを入力してください。</small>
+          <div class="map-safari-note" style="margin-top: 6px;">
+            <p><strong>💡 フォロー中のタイムラインを表示するおすすめ方法:</strong></p>
+            <ul>
+              <li>Xの仕様上、外部埋め込み枠には「アカウントの投稿」または「リスト」が表示可能です。</li>
+              <li>Xアプリ等で普段見ている人をまとめた<strong>「リスト（List）」</strong>を作成し、そのURL（<code>https://x.com/i/lists/...</code>）をここに登録すると、フォローしている人たちの流れてくるタイムラインがそのままサイネージに表示されます！</li>
+            </ul>
+          </div>
+        </div>
+
 
         <div class="form-group form-checkbox-group">
           <label class="checkbox-label" for="cfg-youtube-premium">
@@ -448,8 +452,9 @@
     </div>
   </div>
 
-  <!-- YouTube IFrame API -->
+  <!-- YouTube IFrame API & Twitter Widgets API -->
   <script src="https://www.youtube.com/iframe_api"></script>
+  <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
   <script src="script.js"></script>
 </body>
 </html>
