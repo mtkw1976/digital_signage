@@ -60,11 +60,6 @@ const CONFIG = {
     // 秋葉原・自作PC・セール特価速報 (ASCII.jp)
     akibaRssUrl: "https://ascii.jp/rss.xml",
     refreshIntervalMinutes: 15
-  },
-
-  // 6. 𝕏 (Twitter) マイタイムライン設定
-  xTimeline: {
-    accountOrUrl: "" // 例: "@username" または "https://x.com/i/lists/..."
   }
 };
 
@@ -1270,91 +1265,7 @@ window.onYouTubeIframeAPIReady = async function() {
 };
 
 
-/* =========================================================
-   6-1. 𝕏 (Twitter) パネル - マイタイムライン表示機能 (公式Widgets API)
-   ========================================================= */
-function initXTimelineWidget() {
-  const wrapEl = document.getElementById("x-timeline-widget-wrap");
-  const unconfCard = document.getElementById("x-unconfigured-card");
-  const badgeEl = document.getElementById("x-account-badge");
-  const btnOpen = document.getElementById("btn-x-open");
-  const btnSetup = document.getElementById("btn-x-setup");
 
-  if (btnSetup) {
-    btnSetup.onclick = () => {
-      const btnSettings = document.getElementById("btn-settings-open");
-      if (btnSettings) btnSettings.click();
-      setTimeout(() => {
-        const inputX = document.getElementById("cfg-x-account");
-        if (inputX) {
-          inputX.focus();
-          inputX.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-      }, 250);
-    };
-  }
-
-  const rawSetting = (CONFIG.xTimeline && CONFIG.xTimeline.accountOrUrl) ? CONFIG.xTimeline.accountOrUrl.trim() : "";
-
-  if (!rawSetting) {
-    if (wrapEl) wrapEl.style.display = "none";
-    if (unconfCard) unconfCard.classList.remove("hidden");
-    if (badgeEl) badgeEl.textContent = "@未設定";
-    if (btnOpen) btnOpen.href = "https://x.com/home";
-    return;
-  }
-
-  if (unconfCard) unconfCard.classList.add("hidden");
-  if (wrapEl) wrapEl.style.display = "block";
-
-  // URLと表示バッジの正規化
-  let twitterUrl = rawSetting;
-  let displayBadge = rawSetting;
-
-  if (rawSetting.startsWith("@")) {
-    const handle = rawSetting.substring(1);
-    twitterUrl = `https://twitter.com/${handle}`;
-    displayBadge = `@${handle}`;
-  } else if (!rawSetting.startsWith("http")) {
-    twitterUrl = `https://twitter.com/${rawSetting}`;
-    displayBadge = `@${rawSetting}`;
-  } else {
-    // URL形式の場合 (x.com を twitter.com に置換して widgets API 互換を確保)
-    twitterUrl = rawSetting.replace("https://x.com/", "https://twitter.com/").replace("http://x.com/", "https://twitter.com/");
-    const match = rawSetting.match(/x\.com\/([A-Za-z0-9_]+)/i) || rawSetting.match(/twitter\.com\/([A-Za-z0-9_]+)/i);
-    if (rawSetting.includes("/lists/")) {
-      displayBadge = "マイリスト";
-    } else if (match && match[1]) {
-      displayBadge = `@${match[1]}`;
-    }
-  }
-
-  if (badgeEl) badgeEl.textContent = displayBadge;
-  if (btnOpen) btnOpen.href = rawSetting.startsWith("http") ? rawSetting : `https://x.com/${rawSetting.replace("@", "")}`;
-
-  // TwitterウィジェットリンクHTMLを挿入
-  if (wrapEl) {
-    wrapEl.innerHTML = `
-      <a class="twitter-timeline" 
-         data-theme="dark" 
-         data-chrome="noheader nofooter noborders transparent"
-         data-tweet-limit="10"
-         data-lang="ja"
-         href="${escapeHtml(twitterUrl)}">
-        Tweets by ${escapeHtml(displayBadge)}
-      </a>
-    `;
-
-    // Twitter widgets.js がロード済みであれば再レンダリング
-    if (window.twttr && window.twttr.widgets) {
-      try {
-        window.twttr.widgets.load(wrapEl);
-      } catch (e) {
-        console.warn("Twitter widget load error:", e);
-      }
-    }
-  }
-}
 
 // 6-2. ニュースデータ取得とローテーション
 let currentXChannel = "it"; // "it" または "akiba"
@@ -1733,9 +1644,6 @@ function loadSavedSettings() {
       if (saved.mapWifeUrl) CONFIG.map.wifeEmbedUrl = extractUrlOrClean(saved.mapWifeUrl);
       if (saved.mapDaughterUrl) CONFIG.map.daughterEmbedUrl = extractUrlOrClean(saved.mapDaughterUrl);
 
-      // X (Twitter) マイタイムライン設定
-      if (saved.xAccountOrUrl) CONFIG.xTimeline.accountOrUrl = saved.xAccountOrUrl;
-
       // YouTube & Premium
       if (saved.youtubeDefaultMode) {
         CONFIG.youtube.defaultMode = saved.youtubeDefaultMode;
@@ -1771,7 +1679,6 @@ function initSettingsModal() {
 
   const inputCal = document.getElementById("cfg-calendar-url");
   const inputMapCurrent = document.getElementById("cfg-map-current-url");
-  const inputXAccount = document.getElementById("cfg-x-account");
   const checkYtPremium = document.getElementById("cfg-youtube-premium");
   const inputGoogleAccount = document.getElementById("cfg-google-account");
   const selectYtDefaultMode = document.getElementById("cfg-youtube-default-mode");
@@ -1844,7 +1751,6 @@ function initSettingsModal() {
   function openModal() {
     if (inputCal) inputCal.value = CONFIG.calendar.embedUrl || "";
     if (inputMapCurrent) inputMapCurrent.value = CONFIG.map.currentLocationUrl || "";
-    if (inputXAccount) inputXAccount.value = (CONFIG.xTimeline && CONFIG.xTimeline.accountOrUrl) || "";
     if (checkYtPremium) checkYtPremium.checked = !!CONFIG.youtube.isPremium;
     if (inputGoogleAccount) inputGoogleAccount.value = CONFIG.youtube.googleAccount || "";
     if (selectYtDefaultMode) selectYtDefaultMode.value = CONFIG.youtube.defaultMode || "weather";
@@ -1885,7 +1791,6 @@ function initSettingsModal() {
       const newSettings = {
         calendarUrl: inputCal ? ensureCalendarAgendaMode(extractUrlOrClean(inputCal.value)) : "",
         mapCurrentUrl: inputMapCurrent ? extractUrlOrClean(inputMapCurrent.value) : "",
-        xAccountOrUrl: inputXAccount ? inputXAccount.value.trim() : "",
         youtubeDefaultMode: selectYtDefaultMode ? selectYtDefaultMode.value : "weather",
         youtubeIsPremium: checkYtPremium ? checkYtPremium.checked : true,
         googleAccount: inputGoogleAccount ? inputGoogleAccount.value.trim() : "",
@@ -1965,11 +1870,6 @@ function applyImportedJsonConfig(parsed) {
   }
   if (parsed.currentLocationName !== undefined) currentSettings.currentLocationName = parsed.currentLocationName;
   if (parsed.weatherProvider) currentSettings.weatherProvider = parsed.weatherProvider;
-  // 5. 𝕏 (Twitter) マイタイムライン
-  if (parsed.xTimeline && typeof parsed.xTimeline === "object") {
-    if (parsed.xTimeline.accountOrUrl) currentSettings.xAccountOrUrl = parsed.xTimeline.accountOrUrl.trim();
-  }
-  if (parsed.xAccountOrUrl) currentSettings.xAccountOrUrl = parsed.xAccountOrUrl.trim();
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(currentSettings));
 }
@@ -1985,9 +1885,6 @@ function exportCurrentConfigToJson() {
     },
     map: {
       currentLocationUrl: CONFIG.map.currentLocationUrl || ""
-    },
-    xTimeline: {
-      accountOrUrl: (CONFIG.xTimeline && CONFIG.xTimeline.accountOrUrl) || ""
     },
     weather: {
       currentLocationName: CONFIG.weather.currentLocationName || "",
@@ -2130,14 +2027,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 定期更新 (15分ごと)
   setInterval(fetchAllWeather, CONFIG.weather.updateIntervalMinutes * 60 * 1000);
 
-  // 3. 埋め込み (カレンダー・マップ・𝕏タイムライン) の初期化
+  // 3. 埋め込み (カレンダー・マップ) の初期化
   initEmbeds();
-  initXTimelineWidget();
-  if (window.twttr && window.twttr.ready) {
-    window.twttr.ready(function() {
-      initXTimelineWidget();
-    });
-  }
 
   // 4. ニュース・RSSフィードの読み込みとローテーション開始
   loadFeeds();
