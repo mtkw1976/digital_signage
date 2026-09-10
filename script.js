@@ -38,7 +38,7 @@ const CONFIG = {
   youtube: {
     defaultMode: "weather", // 'weather' (ウェザーニュースLive) または 'recommend' (おすすめ動画)
     currentMode: "weather", // 実行時モード
-    weatherLiveVideoId: "WO-T3EPxTwQ", // 最新ウェザーニュースLive ID (自動取得対応)
+    weatherLiveVideoId: "6qpvwEJ7u2k", // 最新ウェザーニュースLive ID (公式エンドポイント動的解決)
     weatherChannelId: "UCvpdUtzQNW6424N00WVPh3A", // ウェザーニュース公式チャンネルID
     isPremium: true,       // YouTube Premium契約 (広告・CM非表示モード)
     googleAccount: "",     // Premium契約のGoogleアカウント (任意: user@gmail.com)
@@ -859,7 +859,7 @@ const YT_GENRE_POOLS = {
     label: "総合ミックス",
     // ニュースライブ、ウェザーニュース、Lo-Fiを順次3分ローテ
     videos: [
-      "WO-T3EPxTwQ", // ウェザーニュースLiVE (24h生放送)
+      "6qpvwEJ7u2k", // ウェザーニュースLiVE (24h生放送)
       "coYw-eVU0Ks", // テレ朝NEWS24 (24h最新ニュース)
       "CmQi-BxdnSA", // TBS NEWS DIG (24h最新ニュース)
       "jfKfPfyJRdk", // Lofi Girl (Study beats)
@@ -869,7 +869,7 @@ const YT_GENRE_POOLS = {
   news_weather: {
     label: "テレビニュース & 天気Live",
     videos: [
-      "WO-T3EPxTwQ", // ウェザーニュースLiVE
+      "6qpvwEJ7u2k", // ウェザーニュースLiVE
       "coYw-eVU0Ks", // テレ朝NEWS24
       "CmQi-BxdnSA"  // TBS NEWS DIG 24h
     ]
@@ -880,7 +880,7 @@ const YT_GENRE_POOLS = {
       "CmQi-BxdnSA", // TBS NEWS DIG (最新テック・情報)
       "coYw-eVU0Ks", // テレ朝NEWS24
       "jfKfPfyJRdk", // 作業用Lo-Fi
-      "WO-T3EPxTwQ"  // ウェザーニュース
+      "6qpvwEJ7u2k"  // ウェザーニュース
     ]
   },
   latest_tech: {
@@ -888,7 +888,7 @@ const YT_GENRE_POOLS = {
     videos: [
       "coYw-eVU0Ks", // テレ朝NEWS24
       "CmQi-BxdnSA", // TBS NEWS DIG
-      "WO-T3EPxTwQ"  // ウェザーニュース
+      "6qpvwEJ7u2k"  // ウェザーニュース
     ]
   },
   desk_setup: {
@@ -896,7 +896,7 @@ const YT_GENRE_POOLS = {
     videos: [
       "jfKfPfyJRdk",
       "rUxyKA_-grg",
-      "WO-T3EPxTwQ"
+      "6qpvwEJ7u2k"
     ]
   },
   lofi_relax: {
@@ -925,29 +925,45 @@ function getYtActivePool() {
   return poolObj.videos;
 }
 
-// ウェザーニュース最新Live配信の動画IDを動的に取得 (YouTube公式RSSフィード経由)
+// ウェザーニュース最新Live配信の動画IDを動的に取得 (公式エンドポイント優先)
 async function fetchWeatherNewsLiveVideoId() {
+  // 1. ウェザーニュース公式ライブJSONエンドポイント (CORS: * 対応、最新Liveを常時配信)
   try {
-    const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${CONFIG.youtube.weatherChannelId}`;
-    const apiUrl = `${CONFIG.news.rssApiBase}${encodeURIComponent(feedUrl)}`;
-    const res = await fetch(apiUrl);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if (data && data.items && data.items.length > 0) {
-      for (const item of data.items) {
-        const link = item.link || "";
-        const m = link.match(/[?&]v=([a-zA-Z0-9_-]+)/);
-        if (m && m[1]) {
-          console.log("ウェザーニュース最新動画/Liveを検出:", m[1], item.title);
-          CONFIG.youtube.weatherLiveVideoId = m[1];
-          return m[1];
-        }
+    const res = await fetch(`https://weathernews.jp/s/live/json/youtube.json?t=${Date.now()}`, {
+      cache: "no-store"
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.code && typeof data.code === "string" && data.code.trim().length === 11) {
+        const liveCode = data.code.trim();
+        console.log("ウェザーニュース公式エンドポイントから最新Liveを検出:", liveCode);
+        CONFIG.youtube.weatherLiveVideoId = liveCode;
+        return liveCode;
       }
     }
   } catch (err) {
-    console.warn("ウェザーニュースLive動的取得フォールバック:", err);
+    console.warn("ウェザーニュース公式Liveエンドポイント取得エラー:", err);
   }
-  return CONFIG.youtube.weatherLiveVideoId || "WO-T3EPxTwQ";
+
+  // 2. ウェザーニュースLiveリストJSON (フォールバック)
+  try {
+    const res2 = await fetch(`https://site.weathernews.jp/site/live/json/list.json?t=${Date.now()}`, {
+      cache: "no-store"
+    });
+    if (res2.ok) {
+      const data2 = await res2.json();
+      if (data2 && data2.live && data2.live.id && typeof data2.live.id === "string") {
+        const liveId = data2.live.id.trim();
+        console.log("ウェザーニュースLiveリストから最新動画IDを検出:", liveId);
+        CONFIG.youtube.weatherLiveVideoId = liveId;
+        return liveId;
+      }
+    }
+  } catch (err2) {
+    // フォールバック
+  }
+
+  return CONFIG.youtube.weatherLiveVideoId || "6qpvwEJ7u2k";
 }
 
 // YouTube再生モードの切り替え (weather: ウェザーニュースLive / recommend: おすすめ動画)
@@ -969,13 +985,14 @@ function switchYoutubeMode(mode) {
     if (timerText) timerText.textContent = "LIVE";
     if (timerBar) timerBar.style.width = "100%";
 
-    const liveId = CONFIG.youtube.weatherLiveVideoId || "WO-T3EPxTwQ";
-    console.log(`YouTube: ウェザーニュース最新Live [${liveId}] を再生します`);
+    // まず保持している最新IDで即時再生を開始
+    const currentLiveId = CONFIG.youtube.weatherLiveVideoId || "6qpvwEJ7u2k";
+    console.log(`YouTube: ウェザーニュース最新Live [${currentLiveId}] を再生します`);
 
     if (ytPlayer && ytPlayer.loadVideoById) {
       try {
         ytPlayer.loadVideoById({
-          videoId: liveId,
+          videoId: currentLiveId,
           startSeconds: 0
         });
         ytPlayer.mute();
@@ -984,6 +1001,19 @@ function switchYoutubeMode(mode) {
         console.warn("ウェザーニュース再生エラー:", err);
       }
     }
+
+    // バックグラウンドで最新Live枠を検証・もしIDが新しければ即座に切り替え
+    fetchWeatherNewsLiveVideoId().then((latestId) => {
+      if (CONFIG.youtube.currentMode === "weather" && latestId && latestId !== currentLiveId && ytPlayer && ytPlayer.loadVideoById) {
+        console.log(`YouTube: 新しいLive枠 [${latestId}] を検知したため切り替えます`);
+        ytPlayer.loadVideoById({
+          videoId: latestId,
+          startSeconds: 0
+        });
+        ytPlayer.mute();
+        if (CONFIG.youtube.autoplay) ytPlayer.playVideo();
+      }
+    });
   } else {
     // recommend モード
     if (btnRecommend) btnRecommend.classList.add("active");
@@ -1119,21 +1149,34 @@ function playNextVideo() {
 }
 
 // YouTube IFrame API準備完了コールバック
-window.onYouTubeIframeAPIReady = function() {
-  // ウェザーニュースLiveの最新IDをバックグラウンドで動的解決
-  fetchWeatherNewsLiveVideoId().then((liveId) => {
-    if (CONFIG.youtube.currentMode === "weather" && ytPlayer && ytPlayer.loadVideoById) {
-      ytPlayer.loadVideoById({ videoId: liveId, startSeconds: 0 });
-    }
-  });
-
+window.onYouTubeIframeAPIReady = async function() {
   const initMode = CONFIG.youtube.defaultMode || "weather";
   CONFIG.youtube.currentMode = initMode;
 
+  // ウェザーニュースLiveモードの場合、起動時に即座に最新Live IDを取得
+  let liveId = CONFIG.youtube.weatherLiveVideoId || "6qpvwEJ7u2k";
+  try {
+    liveId = await fetchWeatherNewsLiveVideoId();
+  } catch (err) {
+    console.warn("起動時LiveID取得エラー:", err);
+  }
+
   ytCurrentPool = getYtActivePool();
-  const initialVideoId = (initMode === "weather") ? (CONFIG.youtube.weatherLiveVideoId || "WO-T3EPxTwQ") : (ytCurrentPool[0] || "jfKfPfyJRdk");
+  const initialVideoId = (initMode === "weather") ? liveId : (ytCurrentPool[0] || "jfKfPfyJRdk");
 
   updateYtGenreBadge();
+
+  // 15分ごとに最新Live配信枠を定期チェック (日またぎや番組枠更新時の自動追従)
+  setInterval(async () => {
+    const oldId = CONFIG.youtube.weatherLiveVideoId;
+    const latestId = await fetchWeatherNewsLiveVideoId();
+    if (CONFIG.youtube.currentMode === "weather" && latestId && latestId !== oldId && ytPlayer && ytPlayer.loadVideoById) {
+      console.log(`YouTube定期監視: 新Live枠 [${latestId}] を検知したため自動更新します`);
+      ytPlayer.loadVideoById({ videoId: latestId, startSeconds: 0 });
+      ytPlayer.mute();
+      if (CONFIG.youtube.autoplay) ytPlayer.playVideo();
+    }
+  }, 15 * 60 * 1000);
 
   // モード切替ボタンのリスナー登録
   const btnWeather = document.getElementById("btn-yt-mode-weather");
