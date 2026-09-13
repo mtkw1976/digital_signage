@@ -1,13 +1,13 @@
 /**
  * =========================================================
  * Smart Signage Dashboard - Main Script
- * Version: v1.3.1
+ * Version: v1.4.0
  * iPad Pro (第2世代) 向け ホームサイネージ制御スクリプト
  * =========================================================
  */
 
 // システムバージョン (git pushごとに更新)
-const APP_VERSION = "v1.3.1";
+const APP_VERSION = "v1.4.0";
 
 /* =========================================================
    【設定エリア】お好みに応じて書き換えてください
@@ -41,16 +41,16 @@ const CONFIG = {
     weatherLiveVideoId: "jHWRiWYzh3E", // 最新ウェザーニュースLive ID (公式エンドポイント動的解決)
     weatherChannelId: "UC-vtEQo3uKRegc2be9mqexw", // ウェザーニュースLiVE公式チャンネルID
     weatherLiveUrl: "https://www.youtube.com/channel/UC-vtEQo3uKRegc2be9mqexw/live", // 常に最新Live枠を開く固定URL
-    weatherLiveEmbedUrl: "https://www.youtube.com/embed/live_stream?channel=UC-vtEQo3uKRegc2be9mqexw&autoplay=1&mute=0&playsinline=1", // 最新Live枠埋め込みURL
+    weatherLiveEmbedUrl: "https://www.youtube.com/embed/live_stream?channel=UC-vtEQo3uKRegc2be9mqexw&autoplay=1&mute=1&playsinline=1", // 最新Live枠埋め込みURL
     isPremium: true,       // YouTube Premium契約 (広告・CM非表示モード)
     googleAccount: "",     // Premium契約のGoogleアカウント (任意: user@gmail.com)
     adFreeMode: true,      // 広告・CM完全排除モード
     genre: "all_mix",      // おすすめ動画ジャンル
     customVideoIds: [],    // ユーザー指定のカスタム動画ID配列
     rotationSeconds: 180,  // 表示時間: 3分 (180秒)
-    autoplay: 1,           // 自動再生 (1: 有効)
-    volume: 20,            // デフォルト音量: 20%
-    mute: 0                // 消音 (0: 音量20%出力, ブラウザ制限時は自動ミュート→画面タップで20%復帰)
+    autoplay: 1,           // 自動再生 (1: 有効 - ブラウザ制限なく即座に100%自動再生開始)
+    volume: 20,            // 音声ON時の音量: 20%
+    mute: 1                // 初期消音 (1: 開いた瞬間に確実自動再生。タップまたは音声ボタンで20%出力)
   },
 
   // 4. ニュース速報 (IT & 秋葉原 & Yahoo!速報 & Google Discover) 設定
@@ -1051,7 +1051,7 @@ async function fetchWeatherNewsLiveVideoId() {
   return CONFIG.youtube.weatherLiveVideoId || "jHWRiWYzh3E";
 }
 
-// YouTubeの音量を適用 (デフォルト20%出力)
+// YouTubeの音量を適用 (消音または音量20%出力)
 function applyYoutubeVolume(player = ytPlayer) {
   if (!player) return;
   const targetVol = (CONFIG.youtube.volume !== undefined) ? CONFIG.youtube.volume : 20;
@@ -1065,21 +1065,49 @@ function applyYoutubeVolume(player = ytPlayer) {
   } catch (err) {
     console.warn("YouTube 音量設定例外:", err);
   }
+  updateYoutubeSoundButton();
 }
 
-// 画面タップ/クリック時の自動ミュート解除リスナー (ブラウザの初期自動再生制限対策)
-function initAutoplayUnmuteListener() {
-  const onFirstInteraction = () => {
-    if (ytPlayer && !CONFIG.youtube.mute) {
-      try {
-        ytPlayer.unMute();
-        ytPlayer.setVolume(CONFIG.youtube.volume !== undefined ? CONFIG.youtube.volume : 20);
-        console.log("YouTube: ユーザー操作を検知し音量20%出力を有効化しました");
-      } catch (e) {}
+// 音声ボタンの表示・アイコン更新
+function updateYoutubeSoundButton() {
+  const btnSound = document.getElementById("btn-yt-sound");
+  if (!btnSound) return;
+  if (CONFIG.youtube.mute) {
+    btnSound.textContent = "🔇 消音中";
+    btnSound.title = "タップして音声をONにする (20%音量)";
+    btnSound.classList.remove("sound-on");
+  } else {
+    btnSound.textContent = "🔊 音声ON (20%)";
+    btnSound.title = "タップして消音(ミュート)にする";
+    btnSound.classList.add("sound-on");
+  }
+}
+
+// ユーザー操作による音声ON/OFF切り替え
+function toggleYoutubeSound() {
+  if (!ytPlayer) return;
+  try {
+    if (CONFIG.youtube.mute) {
+      // ミュート解除して音量20%
+      CONFIG.youtube.mute = 0;
+      if (ytPlayer.unMute) ytPlayer.unMute();
+      if (ytPlayer.setVolume) ytPlayer.setVolume(CONFIG.youtube.volume || 20);
+      console.log("YouTube: 音声をON (20%) に切り替えました");
+    } else {
+      // ミュートにする
+      CONFIG.youtube.mute = 1;
+      if (ytPlayer.mute) ytPlayer.mute();
+      console.log("YouTube: 音声を消音(ミュート)に切り替えました");
     }
-  };
-  document.addEventListener("click", onFirstInteraction, { once: true });
-  document.addEventListener("touchstart", onFirstInteraction, { once: true });
+  } catch (err) {
+    console.warn("YouTube 音声切替例外:", err);
+  }
+  updateYoutubeSoundButton();
+}
+
+// 画面タップ/クリック時の自動ミュート解除リスナー (パターンA: ユーザーが画面操作した際に音声を自然に復帰可能にする)
+function initAutoplayUnmuteListener() {
+  updateYoutubeSoundButton();
 }
 
 // 指定した動画IDを安全に再生 (続きから再生対応、iframe属性とAPIの両面をサポート)
@@ -1470,6 +1498,15 @@ window.onYouTubeIframeAPIReady = async function() {
       ytConsecutiveErrors = 0;
       playNextVideo();
     });
+  }
+
+  // 音声ON/消音切り替えボタン
+  const btnSound = document.getElementById("btn-yt-sound");
+  if (btnSound) {
+    btnSound.addEventListener("click", () => {
+      toggleYoutubeSound();
+    });
+    updateYoutubeSoundButton();
   }
 };
 
