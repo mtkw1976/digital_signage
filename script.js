@@ -1,13 +1,13 @@
 /**
  * =========================================================
  * Smart Signage Dashboard - Main Script
- * Version: v1.3.0
+ * Version: v1.3.1
  * iPad Pro (第2世代) 向け ホームサイネージ制御スクリプト
  * =========================================================
  */
 
 // システムバージョン (git pushごとに更新)
-const APP_VERSION = "v1.3.0";
+const APP_VERSION = "v1.3.1";
 
 /* =========================================================
    【設定エリア】お好みに応じて書き換えてください
@@ -38,10 +38,10 @@ const CONFIG = {
   youtube: {
     defaultMode: "weather", // 'weather' (ウェザーニュースLive) または 'recommend' (おすすめ動画)
     currentMode: "weather", // 実行時モード
-    weatherLiveVideoId: "UiRUg84OWt0", // 最新ウェザーニュースLive ID (公式エンドポイント動的解決)
-    weatherChannelId: "UCNsidkYpIAQ4QaufptQBPHQ", // ウェザーニュース公式チャンネルID (@weathernews)
-    weatherLiveUrl: "https://www.youtube.com/@weathernews/live", // 直接開く固定URL
-    weatherLiveEmbedUrl: "https://www.youtube.com/embed/live_stream?channel=UCNsidkYpIAQ4QaufptQBPHQ&autoplay=1&mute=0&playsinline=1", // 公式埋め込みURL
+    weatherLiveVideoId: "jHWRiWYzh3E", // 最新ウェザーニュースLive ID (公式エンドポイント動的解決)
+    weatherChannelId: "UC-vtEQo3uKRegc2be9mqexw", // ウェザーニュースLiVE公式チャンネルID
+    weatherLiveUrl: "https://www.youtube.com/channel/UC-vtEQo3uKRegc2be9mqexw/live", // 常に最新Live枠を開く固定URL
+    weatherLiveEmbedUrl: "https://www.youtube.com/embed/live_stream?channel=UC-vtEQo3uKRegc2be9mqexw&autoplay=1&mute=0&playsinline=1", // 最新Live枠埋め込みURL
     isPremium: true,       // YouTube Premium契約 (広告・CM非表示モード)
     googleAccount: "",     // Premium契約のGoogleアカウント (任意: user@gmail.com)
     adFreeMode: true,      // 広告・CM完全排除モード
@@ -1048,7 +1048,7 @@ async function fetchWeatherNewsLiveVideoId() {
     // フォールバック
   }
 
-  return CONFIG.youtube.weatherLiveVideoId || "UiRUg84OWt0";
+  return CONFIG.youtube.weatherLiveVideoId || "jHWRiWYzh3E";
 }
 
 // YouTubeの音量を適用 (デフォルト20%出力)
@@ -1121,7 +1121,7 @@ function loadYoutubeVideo(videoId) {
 
 // ウェザーニュース公式最新Liveストリームの再生
 function loadWeatherLiveStream() {
-  const currentLiveId = CONFIG.youtube.weatherLiveVideoId || "UiRUg84OWt0";
+  const currentLiveId = CONFIG.youtube.weatherLiveVideoId || "jHWRiWYzh3E";
   console.log(`YouTube: ウェザーニュース最新Live [${currentLiveId}] を再生します`);
   loadYoutubeVideo(currentLiveId);
 
@@ -1286,7 +1286,7 @@ window.onYouTubeIframeAPIReady = async function() {
   CONFIG.youtube.currentMode = initMode;
 
   // ウェザーニュースLiveモードの場合、起動時に即座に最新Live IDを取得
-  let liveId = CONFIG.youtube.weatherLiveVideoId || "UiRUg84OWt0";
+  let liveId = CONFIG.youtube.weatherLiveVideoId || "jHWRiWYzh3E";
   try {
     liveId = await fetchWeatherNewsLiveVideoId();
   } catch (err) {
@@ -1294,12 +1294,12 @@ window.onYouTubeIframeAPIReady = async function() {
   }
 
   ytCurrentPool = getYtActivePool();
-  const initialVideoId = (initMode === "weather") ? liveId : (ytCurrentPool[0] || "UiRUg84OWt0");
+  const initialVideoId = (initMode === "weather") ? liveId : (ytCurrentPool[0] || "jHWRiWYzh3E");
   ytCurrentVideoId = initialVideoId;
 
   updateYtGenreBadge();
 
-  // 15分ごとに最新Live配信枠を定期チェック (日またぎや番組枠更新時の自動追従)
+  // 3分ごとに最新Live配信枠を定期チェック (配信枠更新・枠替え時の高速自動追従)
   setInterval(async () => {
     const oldId = CONFIG.youtube.weatherLiveVideoId;
     const latestId = await fetchWeatherNewsLiveVideoId();
@@ -1307,7 +1307,7 @@ window.onYouTubeIframeAPIReady = async function() {
       console.log(`YouTube: Live配信枠が更新されました [${oldId} -> ${latestId}]。切り替えます`);
       loadYoutubeVideo(latestId);
     }
-  }, 15 * 60 * 1000);
+  }, 3 * 60 * 1000);
 
   // モード切替ボタンのリスナー登録
   const btnWeather = document.getElementById("btn-yt-mode-weather");
@@ -1377,8 +1377,20 @@ window.onYouTubeIframeAPIReady = async function() {
         if (event.data === YT.PlayerState.PLAYING) {
           ytConsecutiveErrors = 0;
         }
-        // 動画自体が3分未満で終了した場合も待たずに次へ（次回は最初から再生するため位置クリア）
+        // 動画終了時の処理
         if (event.data === YT.PlayerState.ENDED) {
+          if (CONFIG.youtube.currentMode === "weather") {
+            console.log("YouTube: ウェザーニュースLive配信が終了しました。最新配信枠を取得して再接続します...");
+            fetchWeatherNewsLiveVideoId().then((latestId) => {
+              if (latestId && !isYoutubeVideoFailed(latestId)) {
+                loadYoutubeVideo(latestId);
+              } else {
+                switchYoutubeMode("weather");
+              }
+            });
+            return;
+          }
+          // おすすめ動画モード: 動画自体が3分未満で終了した場合も待たずに次へ（次回は最初から再生するため位置クリア）
           if (ytCurrentVideoId) {
             delete ytVideoPlaybackPositions[ytCurrentVideoId];
             saveYtPlaybackPositions();
