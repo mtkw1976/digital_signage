@@ -1,13 +1,13 @@
 /**
  * =========================================================
  * Smart Signage Dashboard - Main Script
- * Version: v1.2.0
+ * Version: v1.2.1
  * iPad Pro (第2世代) 向け ホームサイネージ制御スクリプト
  * =========================================================
  */
 
 // システムバージョン (git pushごとに更新)
-const APP_VERSION = "v1.2.0";
+const APP_VERSION = "v1.2.1";
 
 /* =========================================================
    【設定エリア】お好みに応じて書き換えてください
@@ -1124,22 +1124,10 @@ function switchYoutubeMode(mode) {
 
 function updateYtGenreBadge() {
   const badge = document.getElementById("yt-genre-badge");
-  const accountBadge = document.getElementById("yt-account-badge");
   const loginBtn = document.getElementById("btn-yt-login");
   const btnBlock = document.getElementById("btn-yt-block");
 
-  const isPrem = !!CONFIG.youtube.isPremium;
   const account = CONFIG.youtube.googleAccount || "";
-
-  if (accountBadge) {
-    if (isPrem) {
-      accountBadge.style.display = "inline-flex";
-      accountBadge.textContent = account ? `💎 Premium (${account})` : "💎 Premium";
-      accountBadge.title = account ? `Premium契約: ${account}` : "YouTube Premium連携モード";
-    } else {
-      accountBadge.style.display = "none";
-    }
-  }
 
   if (loginBtn) {
     if (account) {
