@@ -9,6 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Signage">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
 
   <!-- Google Fonts & Lucide Icons (CDN) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -209,9 +210,16 @@
         </div>
       </div>
       <div class="youtube-body">
-        <!-- YouTube IFrame API用のターゲット要素 -->
+        <!-- YouTube IFrame API用のターゲット要素 (静的iframe + referrerpolicy明示でError 153を完全防止) -->
         <div id="youtube-player-container">
-          <div id="youtube-player"></div>
+          <iframe
+            id="youtube-player"
+            src="https://www.youtube.com/embed/UiRUg84OWt0?enablejsapi=1&autoplay=1&mute=1&playsinline=1&controls=1&rel=0"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerpolicy="strict-origin-when-cross-origin"
+            allowfullscreen>
+          </iframe>
         </div>
       </div>
     </section>
@@ -367,6 +375,15 @@
           <label for="cfg-youtube-custom-ids">YouTube カスタム動画ID (任意・カンマ区切り)</label>
           <input type="text" id="cfg-youtube-custom-ids" placeholder="jfKfPfyJRdk, dQw4w9WgXcQ, ...">
           <small>特定の動画や配信のみをローテーションしたい場合に動画IDをカンマ区切りで指定できます</small>
+        </div>
+
+        <div class="form-group yt-failed-mgmt-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label style="margin-bottom: 0;">🚫 再生エラー動画の除外管理</label>
+            <span class="yt-failed-count-badge" id="cfg-yt-failed-count-badge">0件除外中</span>
+          </div>
+          <small style="display: block; margin-bottom: 8px;">配信終了・埋め込み不可などの理由でエラーとなった動画は自動で除外され、次回以降スキップされます。</small>
+          <button type="button" class="btn btn-secondary" id="btn-yt-reset-failed" style="font-size: 0.78rem; padding: 5px 12px;">🔄 除外リストをリセット（再試行を許可）</button>
         </div>
 
         <div class="form-group">

@@ -33,7 +33,7 @@ const CONFIG = {
   youtube: {
     defaultMode: "weather", // 'weather' (ウェザーニュースLive) または 'recommend' (おすすめ動画)
     currentMode: "weather", // 実行時モード
-    weatherLiveVideoId: "Vi6SIfj1K1Y", // 最新ウェザーニュースLive ID (公式エンドポイント動的解決)
+    weatherLiveVideoId: "UiRUg84OWt0", // 最新ウェザーニュースLive ID (公式エンドポイント動的解決)
     weatherChannelId: "UCNsidkYpIAQ4QaufptQBPHQ", // ウェザーニュース公式チャンネルID (@weathernews)
     weatherLiveUrl: "https://www.youtube.com/@weathernews/live", // 直接開く固定URL
     weatherLiveEmbedUrl: "https://www.youtube.com/embed/live_stream?channel=UCNsidkYpIAQ4QaufptQBPHQ&autoplay=1&mute=1&playsinline=1", // 公式埋め込みURL
@@ -799,36 +799,36 @@ const YT_GENRE_POOLS = {
     label: "総合ミックス",
     // ニュースライブ、ウェザーニュース、Lo-Fiを順次3分ローテ
     videos: [
-      "Vi6SIfj1K1Y", // ウェザーニュースLiVE (24h生放送)
-      "coYw-eVU0Ks", // テレ朝NEWS24 (24h最新ニュース)
-      "CmQi-BxdnSA", // TBS NEWS DIG (24h最新ニュース)
-      "jfKfPfyJRdk", // Lofi Girl (Study beats)
-      "rUxyKA_-grg"  // Lofi Girl (Chill beats)
+      "UiRUg84OWt0", // ウェザーニュースLiVE (最新生放送枠)
+      "s8o7mvyF01Q", // テレ朝NEWS24 (24h最新ニュース)
+      "OQzQwQ1kxEo", // TBS NEWS DIG (24h最新ニュース)
+      "jfKfPfyJRdk", // Lofi Girl (Study beats - 24/7)
+      "rUxyKA_-grg"  // Lofi Girl (Chill beats - 24/7)
     ]
   },
   news_weather: {
     label: "テレビニュース & 天気Live",
     videos: [
-      "Vi6SIfj1K1Y", // ウェザーニュースLiVE
-      "coYw-eVU0Ks", // テレ朝NEWS24
-      "CmQi-BxdnSA"  // TBS NEWS DIG 24h
+      "UiRUg84OWt0", // ウェザーニュースLiVE
+      "s8o7mvyF01Q", // テレ朝NEWS24
+      "OQzQwQ1kxEo"  // TBS NEWS DIG 24h
     ]
   },
   akiba_gadget: {
     label: "アキバ・最新テック",
     videos: [
-      "CmQi-BxdnSA", // TBS NEWS DIG (最新テック・情報)
-      "coYw-eVU0Ks", // テレ朝NEWS24
+      "OQzQwQ1kxEo", // TBS NEWS DIG (最新テック・情報)
+      "s8o7mvyF01Q", // テレ朝NEWS24
       "jfKfPfyJRdk", // 作業用Lo-Fi
-      "Vi6SIfj1K1Y"  // ウェザーニュース
+      "UiRUg84OWt0"  // ウェザーニュース
     ]
   },
   latest_tech: {
     label: "最新テック・ニュース",
     videos: [
-      "coYw-eVU0Ks", // テレ朝NEWS24
-      "CmQi-BxdnSA", // TBS NEWS DIG
-      "Vi6SIfj1K1Y"  // ウェザーニュース
+      "s8o7mvyF01Q", // テレ朝NEWS24
+      "OQzQwQ1kxEo", // TBS NEWS DIG
+      "UiRUg84OWt0"  // ウェザーニュース
     ]
   },
   desk_setup: {
@@ -836,7 +836,7 @@ const YT_GENRE_POOLS = {
     videos: [
       "jfKfPfyJRdk",
       "rUxyKA_-grg",
-      "Vi6SIfj1K1Y"
+      "UiRUg84OWt0"
     ]
   },
   lofi_relax: {
@@ -851,18 +851,102 @@ const YT_GENRE_POOLS = {
 let ytPlayer = null;
 let ytCurrentPool = [];
 let ytCurrentIndex = 0;
+let ytCurrentVideoId = ""; // 現在再生中（または読み込み試行中）の動画ID
 let ytTimerInterval = null;
 let ytRemainingSeconds = 180; // 3分 (180秒)
 let ytConsecutiveErrors = 0; // 連続エラー回数カウンタ
 
-// 現在のアクティブ動画プールを取得
-function getYtActivePool() {
-  if (CONFIG.youtube.customVideoIds && CONFIG.youtube.customVideoIds.length > 0) {
-    return CONFIG.youtube.customVideoIds;
+// エラー動画除外リスト（ブラックリスト）管理
+const YT_FAILED_STORAGE_KEY = "signage_yt_failed_videos";
+let ytFailedVideoMap = {}; // { [videoId]: { timestamp: number, reason: string } }
+
+// 除外リスト初期化 (localStorageから読み込み)
+function initYtFailedVideos() {
+  try {
+    const raw = localStorage.getItem(YT_FAILED_STORAGE_KEY);
+    if (raw) {
+      ytFailedVideoMap = JSON.parse(raw) || {};
+    }
+  } catch (e) {
+    ytFailedVideoMap = {};
   }
-  const genre = CONFIG.youtube.genre || "all_mix";
-  const poolObj = YT_GENRE_POOLS[genre] || YT_GENRE_POOLS.all_mix;
-  return poolObj.videos;
+  updateYtFailedCountBadge();
+}
+
+// 除外リスト保存
+function saveYtFailedVideos() {
+  try {
+    localStorage.setItem(YT_FAILED_STORAGE_KEY, JSON.stringify(ytFailedVideoMap));
+  } catch (e) {
+    console.warn("YouTube除外リスト保存エラー:", e);
+  }
+  updateYtFailedCountBadge();
+}
+
+// 動画IDを除外リストに追加（次回以降再生候補から除外）
+function addFailedYoutubeVideo(videoId, reason = "error") {
+  if (!videoId || typeof videoId !== "string") return;
+  const cleanId = videoId.trim();
+  if (!cleanId) return;
+
+  ytFailedVideoMap[cleanId] = {
+    timestamp: Date.now(),
+    reason: String(reason)
+  };
+  saveYtFailedVideos();
+  console.warn(`YouTube: 動画 [${cleanId}] を除外リスト（ブラックリスト）に登録しました (${reason})。次回以降は再生しません。`);
+}
+
+// 動画IDが除外リストに入っているか判定
+function isYoutubeVideoFailed(videoId) {
+  if (!videoId || typeof videoId !== "string") return false;
+  return !!ytFailedVideoMap[videoId.trim()];
+}
+
+// 除外リストのリセット
+function clearFailedYoutubeVideos() {
+  ytFailedVideoMap = {};
+  saveYtFailedVideos();
+  console.log("YouTube: エラー除外動画リストをリセットしました。");
+}
+
+// 設定モーダル内の除外件数バッジ表示更新
+function updateYtFailedCountBadge() {
+  const badge = document.getElementById("cfg-yt-failed-count-badge");
+  if (badge) {
+    const count = Object.keys(ytFailedVideoMap).length;
+    badge.textContent = `${count}件除外中`;
+  }
+}
+
+// 現在のアクティブ動画プールを取得 (エラー除外リストの動画を完全にスキップ)
+function getYtActivePool() {
+  let rawList = [];
+  if (CONFIG.youtube.customVideoIds && CONFIG.youtube.customVideoIds.length > 0) {
+    rawList = CONFIG.youtube.customVideoIds;
+  } else {
+    const genre = CONFIG.youtube.genre || "all_mix";
+    const poolObj = YT_GENRE_POOLS[genre] || YT_GENRE_POOLS.all_mix;
+    rawList = poolObj.videos || [];
+  }
+
+  // 除外リスト登録済みの動画を除外
+  const filtered = rawList.filter(id => !isYoutubeVideoFailed(id));
+
+  // 万が一、現在の全動画が除外リストに入っている場合
+  if (filtered.length === 0) {
+    console.warn("YouTube: 現在のジャンル内の全動画が除外されています。安全なフォールバックストリームを再生します。");
+    const fallbackList = ["jfKfPfyJRdk", "rUxyKA_-grg"].filter(id => !isYoutubeVideoFailed(id));
+    if (fallbackList.length > 0) {
+      return fallbackList;
+    }
+    // フォールバックも除外されていた場合は除外リストをクリア
+    console.warn("YouTube: 全ての候補動画が除外されたため、除外リストを自動リセットします。");
+    clearFailedYoutubeVideos();
+    return rawList;
+  }
+
+  return filtered;
 }
 
 // ウェザーニュース最新Live配信の動画IDを動的に取得 (公式エンドポイント優先)
@@ -903,37 +987,49 @@ async function fetchWeatherNewsLiveVideoId() {
     // フォールバック
   }
 
-  return CONFIG.youtube.weatherLiveVideoId || "iyw5Owv5PWk";
+  return CONFIG.youtube.weatherLiveVideoId || "UiRUg84OWt0";
 }
 
-// ウェザーニュース公式最新Liveストリームの再生
-function loadWeatherLiveStream() {
-  const currentLiveId = CONFIG.youtube.weatherLiveVideoId || "iyw5Owv5PWk";
-  console.log(`YouTube: ウェザーニュース最新Live [${currentLiveId}] を再生します`);
+// 指定した動画IDを安全に再生 (iframe属性とAPIの両面をサポート)
+function loadYoutubeVideo(videoId) {
+  if (!videoId) return;
+  const cleanId = videoId.trim();
+  ytCurrentVideoId = cleanId;
 
   if (ytPlayer && ytPlayer.loadVideoById) {
     try {
       ytPlayer.loadVideoById({
-        videoId: currentLiveId,
+        videoId: cleanId,
         startSeconds: 0
       });
       ytPlayer.mute();
-      if (CONFIG.youtube.autoplay) ytPlayer.playVideo();
+      if (CONFIG.youtube.autoplay) {
+        ytPlayer.playVideo();
+      }
+      return;
     } catch (err) {
-      console.warn("ウェザーニュース再生エラー:", err);
+      console.warn("ytPlayer.loadVideoById 例外:", err);
     }
   }
 
+  // フォールバック: iframe.srcを直接書き換える (referrerpolicy="strict-origin-when-cross-origin" 適用)
+  const iframe = document.getElementById("youtube-player");
+  if (iframe && iframe.tagName === "IFRAME") {
+    iframe.src = `https://www.youtube.com/embed/${cleanId}?enablejsapi=1&autoplay=1&mute=1&playsinline=1&controls=1&rel=0`;
+  }
+}
+
+// ウェザーニュース公式最新Liveストリームの再生
+function loadWeatherLiveStream() {
+  const currentLiveId = CONFIG.youtube.weatherLiveVideoId || "UiRUg84OWt0";
+  console.log(`YouTube: ウェザーニュース最新Live [${currentLiveId}] を再生します`);
+  loadYoutubeVideo(currentLiveId);
+
   // バックグラウンドで最新Live枠を検証・もしIDが新しければ即座に切り替え
   fetchWeatherNewsLiveVideoId().then((latestId) => {
-    if (CONFIG.youtube.currentMode === "weather" && latestId && latestId !== currentLiveId && ytPlayer && ytPlayer.loadVideoById) {
+    if (CONFIG.youtube.currentMode === "weather" && latestId && latestId !== currentLiveId && !isYoutubeVideoFailed(latestId)) {
       console.log(`YouTube: 新しいLive枠 [${latestId}] を検知したため切り替えます`);
-      ytPlayer.loadVideoById({
-        videoId: latestId,
-        startSeconds: 0
-      });
-      ytPlayer.mute();
-      if (CONFIG.youtube.autoplay) ytPlayer.playVideo();
+      loadYoutubeVideo(latestId);
     }
   });
 }
@@ -968,20 +1064,10 @@ function switchYoutubeMode(mode) {
 
     ytCurrentPool = getYtActivePool();
     if (ytCurrentPool.length > 0) {
-      const recId = ytCurrentPool[ytCurrentIndex % ytCurrentPool.length];
+      ytCurrentIndex = ytCurrentIndex % ytCurrentPool.length;
+      const recId = ytCurrentPool[ytCurrentIndex];
       console.log(`YouTube: おすすめ動画 [${recId}] を再生します`);
-      if (ytPlayer && ytPlayer.loadVideoById) {
-        try {
-          ytPlayer.loadVideoById({
-            videoId: recId,
-            startSeconds: 0
-          });
-          ytPlayer.mute();
-          if (CONFIG.youtube.autoplay) ytPlayer.playVideo();
-        } catch (err) {
-          console.warn("おすすめ動画再生エラー:", err);
-        }
-      }
+      loadYoutubeVideo(recId);
     }
     startYtRotationTimer();
   }
@@ -1065,7 +1151,7 @@ function startYtRotationTimer() {
   ytTimerInterval = setInterval(tick, 1000);
 }
 
-// 次の好みの動画へシームレス遷移
+// 次の好みの動画へシームレス遷移 (エラー動画は自動的に除外されてスキップ)
 function playNextVideo() {
   if (CONFIG.youtube.currentMode === "weather") {
     // 天気Liveモードの時は最新配信に更新
@@ -1079,22 +1165,8 @@ function playNextVideo() {
   ytCurrentIndex = (ytCurrentIndex + 1) % ytCurrentPool.length;
   const nextVideoId = ytCurrentPool[ytCurrentIndex];
 
-  console.log(`YouTube 3分経過: 次の動画 [${nextVideoId}] へ切り替えます`);
-
-  if (ytPlayer && ytPlayer.loadVideoById) {
-    try {
-      ytPlayer.loadVideoById({
-        videoId: nextVideoId,
-        startSeconds: 0
-      });
-      ytPlayer.mute(); // 自動再生ポリシー対策
-      if (CONFIG.youtube.autoplay) {
-        ytPlayer.playVideo();
-      }
-    } catch (err) {
-      console.warn("YouTube 動画切り替え例外:", err);
-    }
-  }
+  console.log(`YouTube 3分経過/スキップ: 次の動画 [${nextVideoId}] へ切り替えます`);
+  loadYoutubeVideo(nextVideoId);
 
   // タイマーリセット
   startYtRotationTimer();
@@ -1102,11 +1174,13 @@ function playNextVideo() {
 
 // YouTube IFrame API準備完了コールバック
 window.onYouTubeIframeAPIReady = async function() {
+  initYtFailedVideos();
+
   const initMode = CONFIG.youtube.defaultMode || "weather";
   CONFIG.youtube.currentMode = initMode;
 
   // ウェザーニュースLiveモードの場合、起動時に即座に最新Live IDを取得
-  let liveId = CONFIG.youtube.weatherLiveVideoId || "iyw5Owv5PWk";
+  let liveId = CONFIG.youtube.weatherLiveVideoId || "UiRUg84OWt0";
   try {
     liveId = await fetchWeatherNewsLiveVideoId();
   } catch (err) {
@@ -1114,7 +1188,8 @@ window.onYouTubeIframeAPIReady = async function() {
   }
 
   ytCurrentPool = getYtActivePool();
-  const initialVideoId = (initMode === "weather") ? liveId : (ytCurrentPool[0] || "jfKfPfyJRdk");
+  const initialVideoId = (initMode === "weather") ? liveId : (ytCurrentPool[0] || "UiRUg84OWt0");
+  ytCurrentVideoId = initialVideoId;
 
   updateYtGenreBadge();
 
@@ -1122,14 +1197,9 @@ window.onYouTubeIframeAPIReady = async function() {
   setInterval(async () => {
     const oldId = CONFIG.youtube.weatherLiveVideoId;
     const latestId = await fetchWeatherNewsLiveVideoId();
-    if (CONFIG.youtube.currentMode === "weather" && latestId && latestId !== oldId && ytPlayer && ytPlayer.loadVideoById) {
+    if (CONFIG.youtube.currentMode === "weather" && latestId && latestId !== oldId && !isYoutubeVideoFailed(latestId)) {
       console.log(`YouTube: Live配信枠が更新されました [${oldId} -> ${latestId}]。切り替えます`);
-      ytPlayer.loadVideoById({
-        videoId: latestId,
-        startSeconds: 0
-      });
-      ytPlayer.mute();
-      if (CONFIG.youtube.autoplay) ytPlayer.playVideo();
+      loadYoutubeVideo(latestId);
     }
   }, 15 * 60 * 1000);
 
@@ -1158,28 +1228,9 @@ window.onYouTubeIframeAPIReady = async function() {
     playerVars.iv_load_policy = 3;
   }
 
-  // YouTube Error 153 (embedder.identity.missing.referrer) 対策:
-  // LiveServer(http://127.0.0.1:5500)などのローカルHTTP環境やfile環境では、ブラウザのReferer送信制限や
-  // YouTube側のクライアント認証仕様によりError 153が発生します。
-  // そのため、ローカル開発時は origin / widget_referrer を "https://www.youtube.com" に設定し、
-  // host に "https://www.youtube.com" を明示します。
-  // 本番環境(HTTPS/iPad Safari/GitHub Pages)では window.location.origin を使用します。
-  const isLocalDev = window.location.protocol === "http:" ||
-                     window.location.hostname === "localhost" || 
-                     window.location.hostname === "127.0.0.1" || 
-                     window.location.hostname === "[::1]" ||
-                     window.location.protocol === "file:";
-  const effectiveOrigin = (isLocalDev || !window.location.origin || window.location.origin.startsWith("file:"))
-    ? "https://www.youtube.com"
-    : window.location.origin;
-
-  playerVars.origin = effectiveOrigin;
-  playerVars.widget_referrer = effectiveOrigin;
-
+  // 既存の静的iframe要素（referrerpolicy="strict-origin-when-cross-origin"明示）に対してAPIをバインド
   ytPlayer = new YT.Player("youtube-player", {
     host: "https://www.youtube.com",
-    videoId: initialVideoId,
-    playerVars: playerVars,
     events: {
       onReady: (event) => {
         ytConsecutiveErrors = 0;
@@ -1208,37 +1259,38 @@ window.onYouTubeIframeAPIReady = async function() {
         }
       },
       onError: (e) => {
+        const errorCode = e.data || e;
+        const failedId = ytCurrentVideoId || (ytPlayer && ytPlayer.getVideoData ? ytPlayer.getVideoData().video_id : "");
         ytConsecutiveErrors++;
-        console.warn(`YouTube Player エラー (code ${e.data || e}), 連続エラー: ${ytConsecutiveErrors}`);
+        console.warn(`YouTube Player エラー (code ${errorCode}, videoId: ${failedId}), 連続エラー: ${ytConsecutiveErrors}`);
 
-        // ウェザーニュースLive再生中のエラー時は最新枠の再取得、ダメならおすすめ動画へ
+        // エラーとなった動画IDを除外リストに登録（次回以降再生候補から除外）
+        if (failedId) {
+          addFailedYoutubeVideo(failedId, `error_code_${errorCode}`);
+        }
+
+        // ウェザーニュースLive再生中のエラー時
         if (CONFIG.youtube.currentMode === "weather") {
           console.warn("ウェザーニュースLive再生エラー、最新Live枠の再取得を試みます");
           fetchWeatherNewsLiveVideoId().then((latestId) => {
-            if (latestId && ytPlayer && ytPlayer.loadVideoById) {
-              ytPlayer.loadVideoById({ videoId: latestId, startSeconds: 0 });
-              ytPlayer.mute();
-              if (CONFIG.youtube.autoplay) ytPlayer.playVideo();
+            if (latestId && latestId !== failedId && !isYoutubeVideoFailed(latestId)) {
+              loadYoutubeVideo(latestId);
             } else {
+              console.warn("最新Live枠もエラーのため、おすすめ動画モードに切り替えます");
               switchYoutubeMode("recommend");
             }
           });
           return;
         }
 
-        // プール全件が連続エラーになった場合は無限ループを停止して待機
-        if (ytConsecutiveErrors >= ytCurrentPool.length) {
-          console.warn("YouTube: 現在再生可能な動画がありません。無限スキップを停止します。");
-          if (ytTimerInterval) clearInterval(ytTimerInterval);
-          const timerText = document.getElementById("yt-timer-text");
-          if (timerText) timerText.textContent = "待機中";
-          return;
-        }
+        // おすすめ動画再生中のエラー時:
+        // 現在のプールを除外リスト反映後のものに更新
+        ytCurrentPool = getYtActivePool();
 
-        // 次の動画を4秒後に試行（高速な繰り返しエラーの防止）
+        // 待機することなく、即座に次の有効な別動画へ切り替え
         setTimeout(() => {
           playNextVideo();
-        }, 4000);
+        }, 400);
       }
     }
   });
@@ -2032,6 +2084,7 @@ const STORAGE_KEY = "digital_signage_user_settings";
 
 function loadSavedSettings() {
   try {
+    initYtFailedVideos();
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const saved = JSON.parse(raw);
@@ -2076,10 +2129,19 @@ function initSettingsModal() {
   const selectYtDefaultMode = document.getElementById("cfg-youtube-default-mode");
   const selectYtGenre = document.getElementById("cfg-youtube-genre");
   const inputYtCustom = document.getElementById("cfg-youtube-custom-ids");
+  const btnResetYtFailed = document.getElementById("btn-yt-reset-failed");
   const inputLocName = document.getElementById("cfg-current-loc-name");
   const selectProvider = document.getElementById("cfg-weather-provider");
   const groupOwmKey = document.getElementById("group-owm-key");
   const inputOwmKey = document.getElementById("cfg-owm-key");
+
+  // YouTube除外動画リセットボタン
+  if (btnResetYtFailed) {
+    btnResetYtFailed.addEventListener("click", () => {
+      clearFailedYoutubeVideos();
+      alert("除外された動画リストをリセットしました。すべての動画の再試行が許可されます。");
+    });
+  }
 
   // JSONファイル読み込み・書き出し用要素
   const fileInput = document.getElementById("cfg-file-import");
@@ -2155,6 +2217,7 @@ function initSettingsModal() {
     if (groupOwmKey && selectProvider) {
       groupOwmKey.style.display = (selectProvider.value === "openweathermap") ? "flex" : "none";
     }
+    updateYtFailedCountBadge();
     modal.classList.add("active");
   }
 
