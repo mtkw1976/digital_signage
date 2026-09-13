@@ -2371,4 +2371,83 @@ html, body {
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
+/* ニュース非表示ボタン・管理スタイル */
+.news-block-btn {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #f87171;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.news-block-btn:hover,
+.news-block-btn:active {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+}
+
+.news-item-block-btn {
+  background: none;
+  border: none;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: 0.3;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.news-item-block-btn:hover {
+  opacity: 1;
+  background: rgba(239, 68, 68, 0.2);
+  transform: scale(1.15);
+}
+
+.news-featured-block-btn {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  color: #f87171;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-left: auto;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.news-featured-block-btn:hover {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+}
+
+.news-hidden-mgmt-group {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.news-hidden-count-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
 

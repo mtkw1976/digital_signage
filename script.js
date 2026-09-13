@@ -1,13 +1,13 @@
 /**
  * =========================================================
  * Smart Signage Dashboard - Main Script
- * Version: v1.1.0
+ * Version: v1.2.0
  * iPad Pro (第2世代) 向け ホームサイネージ制御スクリプト
  * =========================================================
  */
 
 // システムバージョン (git pushごとに更新)
-const APP_VERSION = "v1.1.0";
+const APP_VERSION = "v1.2.0";
 
 /* =========================================================
    【設定エリア】お好みに応じて書き換えてください
@@ -41,7 +41,7 @@ const CONFIG = {
     weatherLiveVideoId: "UiRUg84OWt0", // 最新ウェザーニュースLive ID (公式エンドポイント動的解決)
     weatherChannelId: "UCNsidkYpIAQ4QaufptQBPHQ", // ウェザーニュース公式チャンネルID (@weathernews)
     weatherLiveUrl: "https://www.youtube.com/@weathernews/live", // 直接開く固定URL
-    weatherLiveEmbedUrl: "https://www.youtube.com/embed/live_stream?channel=UCNsidkYpIAQ4QaufptQBPHQ&autoplay=1&mute=1&playsinline=1", // 公式埋め込みURL
+    weatherLiveEmbedUrl: "https://www.youtube.com/embed/live_stream?channel=UCNsidkYpIAQ4QaufptQBPHQ&autoplay=1&mute=0&playsinline=1", // 公式埋め込みURL
     isPremium: true,       // YouTube Premium契約 (広告・CM非表示モード)
     googleAccount: "",     // Premium契約のGoogleアカウント (任意: user@gmail.com)
     adFreeMode: true,      // 広告・CM完全排除モード
@@ -49,7 +49,8 @@ const CONFIG = {
     customVideoIds: [],    // ユーザー指定のカスタム動画ID配列
     rotationSeconds: 180,  // 表示時間: 3分 (180秒)
     autoplay: 1,           // 自動再生 (1: 有効)
-    mute: 1                // 消音 (1: ミュート ※iOS/Safari自動再生ポリシー対策)
+    volume: 20,            // デフォルト音量: 20%
+    mute: 0                // 消音 (0: 音量20%出力, ブラウザ制限時は自動ミュート→画面タップで20%復帰)
   },
 
   // 4. ニュース速報 (IT & 秋葉原 & Yahoo!速報 & Google Discover) 設定
@@ -1001,6 +1002,37 @@ async function fetchWeatherNewsLiveVideoId() {
   return CONFIG.youtube.weatherLiveVideoId || "UiRUg84OWt0";
 }
 
+// YouTubeの音量を適用 (デフォルト20%出力)
+function applyYoutubeVolume(player = ytPlayer) {
+  if (!player) return;
+  const targetVol = (CONFIG.youtube.volume !== undefined) ? CONFIG.youtube.volume : 20;
+  try {
+    if (CONFIG.youtube.mute) {
+      if (player.mute) player.mute();
+    } else {
+      if (player.unMute) player.unMute();
+      if (player.setVolume) player.setVolume(targetVol);
+    }
+  } catch (err) {
+    console.warn("YouTube 音量設定例外:", err);
+  }
+}
+
+// 画面タップ/クリック時の自動ミュート解除リスナー (ブラウザの初期自動再生制限対策)
+function initAutoplayUnmuteListener() {
+  const onFirstInteraction = () => {
+    if (ytPlayer && !CONFIG.youtube.mute) {
+      try {
+        ytPlayer.unMute();
+        ytPlayer.setVolume(CONFIG.youtube.volume !== undefined ? CONFIG.youtube.volume : 20);
+        console.log("YouTube: ユーザー操作を検知し音量20%出力を有効化しました");
+      } catch (e) {}
+    }
+  };
+  document.addEventListener("click", onFirstInteraction, { once: true });
+  document.addEventListener("touchstart", onFirstInteraction, { once: true });
+}
+
 // 指定した動画IDを安全に再生 (iframe属性とAPIの両面をサポート)
 function loadYoutubeVideo(videoId) {
   if (!videoId) return;
@@ -1013,7 +1045,7 @@ function loadYoutubeVideo(videoId) {
         videoId: cleanId,
         startSeconds: 0
       });
-      ytPlayer.mute();
+      applyYoutubeVolume(ytPlayer);
       if (CONFIG.youtube.autoplay) {
         ytPlayer.playVideo();
       }
@@ -1026,7 +1058,8 @@ function loadYoutubeVideo(videoId) {
   // フォールバック: iframe.srcを直接書き換える (referrerpolicy="strict-origin-when-cross-origin" 適用)
   const iframe = document.getElementById("youtube-player");
   if (iframe && iframe.tagName === "IFRAME") {
-    iframe.src = `https://www.youtube.com/embed/${cleanId}?enablejsapi=1&autoplay=1&mute=1&playsinline=1&controls=1&rel=0`;
+    const muteParam = CONFIG.youtube.mute ? 1 : 0;
+    iframe.src = `https://www.youtube.com/embed/${cleanId}?enablejsapi=1&autoplay=1&mute=${muteParam}&playsinline=1&controls=1&rel=0`;
   }
 }
 
@@ -1253,14 +1286,32 @@ window.onYouTubeIframeAPIReady = async function() {
     events: {
       onReady: (event) => {
         ytConsecutiveErrors = 0;
-        event.target.mute();
-        if (CONFIG.youtube.autoplay) {
-          try {
-            event.target.playVideo();
-          } catch (e) {
-            console.warn("YouTube 自動再生待機:", e);
+        const targetVol = (CONFIG.youtube.volume !== undefined) ? CONFIG.youtube.volume : 20;
+        try {
+          if (CONFIG.youtube.mute) {
+            event.target.mute();
+          } else {
+            event.target.unMute();
+            event.target.setVolume(targetVol);
           }
+          if (CONFIG.youtube.autoplay) {
+            const playPromise = event.target.playVideo();
+            if (playPromise && playPromise.catch) {
+              playPromise.catch((err) => {
+                console.warn("ブラウザ自動再生制限を検知: 一時ミュートで再生開始 (画面タップで20%音量復帰)", err);
+                event.target.mute();
+                event.target.playVideo();
+              });
+            }
+          }
+        } catch (e) {
+          console.warn("YouTube 音声再生待機:", e);
+          try {
+            event.target.mute();
+            event.target.playVideo();
+          } catch (e2) {}
         }
+        initAutoplayUnmuteListener();
         if (initMode === "recommend") {
           startYtRotationTimer();
         } else {
@@ -1372,6 +1423,78 @@ let newsFeaturedRotateTimer = null;
 let newsRotationTimer = null;
 const NEWS_ITEMS_PER_PAGE = 5; // 注目1件 + リスト4件 = 1ページ計5件
 
+// 非表示ニュース記事管理 (localStorage永続化)
+const NEWS_HIDDEN_STORAGE_KEY = "signage_news_hidden_items";
+let newsHiddenMap = {}; // { [itemKey]: { title: string, timestamp: number } }
+
+function initNewsHiddenItems() {
+  try {
+    const raw = localStorage.getItem(NEWS_HIDDEN_STORAGE_KEY);
+    if (raw) {
+      newsHiddenMap = JSON.parse(raw) || {};
+    }
+  } catch (e) {
+    newsHiddenMap = {};
+  }
+  updateNewsHiddenCountBadge();
+}
+
+function saveNewsHiddenItems() {
+  try {
+    localStorage.setItem(NEWS_HIDDEN_STORAGE_KEY, JSON.stringify(newsHiddenMap));
+  } catch (e) {
+    console.warn("非表示ニュース保存エラー:", e);
+  }
+  updateNewsHiddenCountBadge();
+}
+
+function getNewsItemKey(item) {
+  if (!item) return "";
+  return ((item.link && item.link !== "#") ? item.link : item.title || "").trim();
+}
+
+function isNewsItemHidden(item) {
+  const key = getNewsItemKey(item);
+  if (!key) return false;
+  return !!newsHiddenMap[key];
+}
+
+function hideNewsItem(item, channel = currentNewsChannel) {
+  if (!item) return;
+  const key = getNewsItemKey(item);
+  if (!key) return;
+
+  newsHiddenMap[key] = {
+    title: item.title || "",
+    timestamp: Date.now()
+  };
+  saveNewsHiddenItems();
+  console.log(`News: 記事 [${item.title}] を非表示に登録しました。`);
+
+  // xFeedsDataから除外
+  if (xFeedsData[channel]) {
+    xFeedsData[channel] = xFeedsData[channel].filter(i => getNewsItemKey(i) !== key);
+  }
+
+  // 再描画
+  renderNewsChannel(channel);
+}
+
+function clearNewsHiddenItems() {
+  newsHiddenMap = {};
+  saveNewsHiddenItems();
+  console.log("News: 非表示ニュースリストをリセットしました。");
+  loadFeeds();
+}
+
+function updateNewsHiddenCountBadge() {
+  const badge = document.getElementById("cfg-news-hidden-count-badge");
+  if (badge) {
+    const count = Object.keys(newsHiddenMap).length;
+    badge.textContent = `${count}件非表示中`;
+  }
+}
+
 // rss2json APIを利用してCORS制限なく高速・確実にJSON取得する関数 (図・画像抽出対応)
 async function fetchRssFeed(rssUrl, fallbackType = "tech") {
   const apiUrl = `${CONFIG.news.rssApiBase}${encodeURIComponent(rssUrl)}`;
@@ -1394,7 +1517,10 @@ async function fetchRssFeed(rssUrl, fallbackType = "tech") {
     defaultAuthors = [{ name: "ギズモード・ジャパン", handle: "@gizmodojapan", icon: "🌐" }, { name: "ITmedia NEWS", handle: "@itmedia_news", icon: "💻" }];
   }
 
-  return data.items.slice(0, 20).map((item, idx) => {
+  // 非表示登録済みの記事を完全除外
+  const unhiddenItems = (data.items || []).filter(item => !isNewsItemHidden(item));
+
+  return unhiddenItems.slice(0, 20).map((item, idx) => {
     let rawTitle = item.title || "タイトルなし";
     let source = "";
 
@@ -1556,6 +1682,7 @@ function renderNewsPanel(channel) {
               <span class="news-item-time">${item.time}</span>
             </div>
           </div>
+          <button type="button" class="news-item-block-btn" title="この記事を非表示にする" onclick="onNewsItemBlockClick('${channel}', ${pageStart + localIdx}, event)">🚫</button>
           <span class="news-open-icon">↗</span>
         </a>
       </li>
@@ -1590,6 +1717,7 @@ function updateNewsFeaturedBox(channel, localIdx) {
         <div class="news-featured-meta-row">
           <span class="news-source-tag">${escapeHtml(item.authorName)}</span>
           <span class="news-item-time">${item.time}</span>
+          <button type="button" class="news-featured-block-btn" title="この注目記事を次回から非表示にする" onclick="onNewsFeaturedBlockClick('${channel}', event)">🚫 非表示</button>
           <span class="news-featured-more">記事を読む ↗</span>
         </div>
       </div>
@@ -1613,6 +1741,33 @@ window.onNewsItemClick = function(channel, localIdx, event) {
   updateNewsFeaturedBox(channel, localIdx);
 };
 
+window.onNewsItemBlockClick = function(channel, actualIdx, event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const items = xFeedsData[channel] || [];
+  if (actualIdx >= 0 && actualIdx < items.length) {
+    hideNewsItem(items[actualIdx], channel);
+  }
+};
+
+window.onNewsFeaturedBlockClick = function(channel, event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const items = xFeedsData[channel] || [];
+  const pageIdx = newsPagination[channel]?.pageIndex || 0;
+  const pageStart = pageIdx * NEWS_ITEMS_PER_PAGE;
+  const localIdx = newsFeaturedIndices[channel] || 0;
+  const actualIdx = pageStart + localIdx;
+
+  if (actualIdx >= 0 && actualIdx < items.length) {
+    hideNewsItem(items[actualIdx], channel);
+  }
+};
+
 function switchNewsChannel(targetChannel) {
   currentNewsChannel = targetChannel;
   if (!newsPagination[targetChannel]) newsPagination[targetChannel] = { pageIndex: 0 };
@@ -1632,6 +1787,14 @@ function initNewsFeedRotation() {
       });
     }
   });
+
+  // ニュースヘッダーの「🚫 非表示」ボタン
+  const btnNewsBlock = document.getElementById("btn-news-block");
+  if (btnNewsBlock) {
+    btnNewsBlock.addEventListener("click", (e) => {
+      onNewsFeaturedBlockClick(currentNewsChannel, e);
+    });
+  }
 
   const timerBar = document.getElementById("news-timer-bar");
   const totalDuration = CONFIG.news.rotationSeconds || 30;
@@ -2132,6 +2295,7 @@ const STORAGE_KEY = "digital_signage_user_settings";
 function loadSavedSettings() {
   try {
     initYtFailedVideos();
+    initNewsHiddenItems();
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const saved = JSON.parse(raw);
@@ -2177,6 +2341,7 @@ function initSettingsModal() {
   const selectYtGenre = document.getElementById("cfg-youtube-genre");
   const inputYtCustom = document.getElementById("cfg-youtube-custom-ids");
   const btnResetYtFailed = document.getElementById("btn-yt-reset-failed");
+  const btnResetNewsHidden = document.getElementById("btn-news-reset-hidden");
   const inputLocName = document.getElementById("cfg-current-loc-name");
   const selectProvider = document.getElementById("cfg-weather-provider");
   const groupOwmKey = document.getElementById("group-owm-key");
@@ -2187,6 +2352,14 @@ function initSettingsModal() {
     btnResetYtFailed.addEventListener("click", () => {
       clearFailedYoutubeVideos();
       alert("除外された動画リストをリセットしました。すべての動画の再試行が許可されます。");
+    });
+  }
+
+  // 非表示ニュースリセットボタン
+  if (btnResetNewsHidden) {
+    btnResetNewsHidden.addEventListener("click", () => {
+      clearNewsHiddenItems();
+      alert("非表示ニュースリストをリセットしました。すべてのニュース記事の再表示が許可されます。");
     });
   }
 
@@ -2265,6 +2438,7 @@ function initSettingsModal() {
       groupOwmKey.style.display = (selectProvider.value === "openweathermap") ? "flex" : "none";
     }
     updateYtFailedCountBadge();
+    updateNewsHiddenCountBadge();
     modal.classList.add("active");
   }
 

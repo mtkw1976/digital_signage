@@ -26,7 +26,7 @@
         <div class="header-left">
           <span class="tile-title">現在時刻 & 予定</span>
           <span class="live-dot"></span>
-          <span class="app-version-badge" id="app-version-badge" title="システムバージョン">v1.1.0</span>
+          <span class="app-version-badge" id="app-version-badge" title="システムバージョン">v1.2.0</span>
         </div>
         <div class="header-right-actions">
           <a href="https://calendar.google.com" target="_blank" rel="noopener noreferrer" class="calendar-external-btn" id="btn-calendar-external" title="Googleカレンダーを直接開く">予定 ↗</a>
@@ -216,7 +216,7 @@
         <div id="youtube-player-container">
           <iframe
             id="youtube-player"
-            src="https://www.youtube.com/embed/UiRUg84OWt0?enablejsapi=1&autoplay=1&mute=1&playsinline=1&controls=1&rel=0"
+            src="https://www.youtube.com/embed/UiRUg84OWt0?enablejsapi=1&autoplay=1&mute=0&playsinline=1&controls=1&rel=0"
             frameborder="0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             referrerpolicy="strict-origin-when-cross-origin"
@@ -247,6 +247,7 @@
           <div class="feed-timer-bar-wrap">
             <div class="feed-timer-bar" id="news-timer-bar"></div>
           </div>
+          <button id="btn-news-block" class="news-block-btn" title="現在表示中の注目ニュースを次回から非表示にする">🚫 非表示</button>
           <a href="https://www.gizmodo.jp" target="_blank" rel="noopener noreferrer" class="news-ext-link" id="link-news-ext" title="ニュースサイトを開く">開く ↗</a>
         </div>
       </div>
@@ -381,11 +382,20 @@
 
         <div class="form-group yt-failed-mgmt-group">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <label style="margin-bottom: 0;">🚫 再生エラー動画の除外管理</label>
+            <label style="margin-bottom: 0;">🚫 再生エラー・非表示動画の管理</label>
             <span class="yt-failed-count-badge" id="cfg-yt-failed-count-badge">0件除外中</span>
           </div>
-          <small style="display: block; margin-bottom: 8px;">配信終了・埋め込み不可などの理由でエラーとなった動画は自動で除外され、次回以降スキップされます。</small>
+          <small style="display: block; margin-bottom: 8px;">配信終了・埋め込み不可や「🚫 非表示」にした動画は次回以降スキップされます。</small>
           <button type="button" class="btn btn-secondary" id="btn-yt-reset-failed" style="font-size: 0.78rem; padding: 5px 12px;">🔄 除外リストをリセット（再試行を許可）</button>
+        </div>
+
+        <div class="form-group news-hidden-mgmt-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label style="margin-bottom: 0;">🚫 非表示ニュース記事の管理</label>
+            <span class="news-hidden-count-badge" id="cfg-news-hidden-count-badge">0件非表示中</span>
+          </div>
+          <small style="display: block; margin-bottom: 8px;">「🚫 非表示」にしたニュース記事は次回以降リストや注目記事に表示されません。</small>
+          <button type="button" class="btn btn-secondary" id="btn-news-reset-hidden" style="font-size: 0.78rem; padding: 5px 12px;">🔄 非表示ニュースをリセット（再表示を許可）</button>
         </div>
 
         <div class="form-group">
