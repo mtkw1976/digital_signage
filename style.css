@@ -1120,6 +1120,29 @@ html, body {
   border-color: var(--accent-cyan);
 }
 
+.yt-block-btn {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #f87171;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.yt-block-btn:hover,
+.yt-block-btn:active {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+}
+
 .youtube-body {
   flex: 1;
   width: 100%;

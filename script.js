@@ -797,21 +797,21 @@ function initEmbeds() {
 const YT_GENRE_POOLS = {
   all_mix: {
     label: "総合ミックス",
-    // ニュースライブ、ウェザーニュース、Lo-Fiを順次3分ローテ
+    // ニュースライブ、テック、Lo-Fiを順次3分ローテ (ウェザーニュースは独立ボタンがあるため除外)
     videos: [
-      "UiRUg84OWt0", // ウェザーニュースLiVE (最新生放送枠)
       "s8o7mvyF01Q", // テレ朝NEWS24 (24h最新ニュース)
       "OQzQwQ1kxEo", // TBS NEWS DIG (24h最新ニュース)
+      "Y_C2fuXEgFU", // 日テレNEWS LIVE (24h最新ニュース)
       "jfKfPfyJRdk", // Lofi Girl (Study beats - 24/7)
       "rUxyKA_-grg"  // Lofi Girl (Chill beats - 24/7)
     ]
   },
   news_weather: {
-    label: "テレビニュース & 天気Live",
+    label: "テレビニュース速報 (24h)",
     videos: [
-      "UiRUg84OWt0", // ウェザーニュースLiVE
       "s8o7mvyF01Q", // テレ朝NEWS24
-      "OQzQwQ1kxEo"  // TBS NEWS DIG 24h
+      "OQzQwQ1kxEo", // TBS NEWS DIG 24h
+      "Y_C2fuXEgFU"  // 日テレNEWS LIVE
     ]
   },
   akiba_gadget: {
@@ -820,7 +820,7 @@ const YT_GENRE_POOLS = {
       "OQzQwQ1kxEo", // TBS NEWS DIG (最新テック・情報)
       "s8o7mvyF01Q", // テレ朝NEWS24
       "jfKfPfyJRdk", // 作業用Lo-Fi
-      "UiRUg84OWt0"  // ウェザーニュース
+      "rUxyKA_-grg"  // Chill beats
     ]
   },
   latest_tech: {
@@ -828,7 +828,8 @@ const YT_GENRE_POOLS = {
     videos: [
       "s8o7mvyF01Q", // テレ朝NEWS24
       "OQzQwQ1kxEo", // TBS NEWS DIG
-      "UiRUg84OWt0"  // ウェザーニュース
+      "Y_C2fuXEgFU", // 日テレNEWS LIVE
+      "jfKfPfyJRdk"  // 作業用Lo-Fi
     ]
   },
   desk_setup: {
@@ -836,14 +837,15 @@ const YT_GENRE_POOLS = {
     videos: [
       "jfKfPfyJRdk",
       "rUxyKA_-grg",
-      "UiRUg84OWt0"
+      "5yx6BWlEVcY"
     ]
   },
   lofi_relax: {
     label: "作業用Lo-Fi",
     videos: [
       "jfKfPfyJRdk",
-      "rUxyKA_-grg"
+      "rUxyKA_-grg",
+      "5yx6BWlEVcY"
     ]
   }
 };
@@ -1040,6 +1042,7 @@ function switchYoutubeMode(mode) {
   const btnWeather = document.getElementById("btn-yt-mode-weather");
   const btnRecommend = document.getElementById("btn-yt-mode-recommend");
   const btnLiveDirect = document.getElementById("btn-yt-live-direct");
+  const btnBlock = document.getElementById("btn-yt-block");
   const timerText = document.getElementById("yt-timer-text");
   const timerBar = document.getElementById("yt-timer-bar");
 
@@ -1047,6 +1050,7 @@ function switchYoutubeMode(mode) {
     if (btnWeather) btnWeather.classList.add("active");
     if (btnRecommend) btnRecommend.classList.remove("active");
     if (btnLiveDirect) btnLiveDirect.style.display = "inline-flex";
+    if (btnBlock) btnBlock.style.display = "none";
 
     if (ytTimerInterval) {
       clearInterval(ytTimerInterval);
@@ -1061,6 +1065,7 @@ function switchYoutubeMode(mode) {
     if (btnRecommend) btnRecommend.classList.add("active");
     if (btnWeather) btnWeather.classList.remove("active");
     if (btnLiveDirect) btnLiveDirect.style.display = "none";
+    if (btnBlock) btnBlock.style.display = "inline-flex";
 
     ytCurrentPool = getYtActivePool();
     if (ytCurrentPool.length > 0) {
@@ -1079,6 +1084,7 @@ function updateYtGenreBadge() {
   const badge = document.getElementById("yt-genre-badge");
   const accountBadge = document.getElementById("yt-account-badge");
   const loginBtn = document.getElementById("btn-yt-login");
+  const btnBlock = document.getElementById("btn-yt-block");
 
   const isPrem = !!CONFIG.youtube.isPremium;
   const account = CONFIG.youtube.googleAccount || "";
@@ -1105,6 +1111,10 @@ function updateYtGenreBadge() {
   const btnLiveDirect = document.getElementById("btn-yt-live-direct");
   if (btnLiveDirect) {
     btnLiveDirect.style.display = (CONFIG.youtube.currentMode === "weather") ? "inline-flex" : "none";
+  }
+
+  if (btnBlock) {
+    btnBlock.style.display = (CONFIG.youtube.currentMode === "recommend") ? "inline-flex" : "none";
   }
 
   if (!badge) return;
@@ -1299,6 +1309,34 @@ window.onYouTubeIframeAPIReady = async function() {
   const btnSkip = document.getElementById("btn-yt-skip");
   if (btnSkip) {
     btnSkip.addEventListener("click", () => {
+      ytConsecutiveErrors = 0;
+      playNextVideo();
+    });
+  }
+
+  // 次回から非表示（除外リスト登録 & スキップ）ボタン
+  const btnBlock = document.getElementById("btn-yt-block");
+  if (btnBlock) {
+    btnBlock.addEventListener("click", () => {
+      const targetId = ytCurrentVideoId;
+      if (!targetId) return;
+
+      // 除外リストに登録 (次回以降非表示)
+      addFailedYoutubeVideo(targetId, "user_blocked");
+      console.log(`YouTube: ユーザー操作により動画 [${targetId}] を除外リスト（次回以降非表示）に登録しました。`);
+
+      // 視覚的フィードバック
+      const originalText = btnBlock.innerHTML;
+      btnBlock.innerHTML = "✓ 除外";
+      btnBlock.style.background = "#ef4444";
+      btnBlock.style.color = "#ffffff";
+      setTimeout(() => {
+        btnBlock.innerHTML = originalText;
+        btnBlock.style.background = "";
+        btnBlock.style.color = "";
+      }, 1000);
+
+      // 即座に次の動画へスキップ
       ytConsecutiveErrors = 0;
       playNextVideo();
     });
