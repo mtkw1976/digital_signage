@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Smart Signage Dashboard</title>
 
   <!-- iOS Safari ホーム画面追加 (PWA/フルスクリーン) 設定 -->
@@ -174,64 +175,20 @@
       </div>
     </section>
 
-    <!-- タイル3: Googleマップ (現在位置の単一表示) -->
-    <section class="tile tile-map" id="tile-map">
-      <div class="tile-header">
-        <div class="header-left">
-          <span class="tile-title">現在位置マップ</span>
-          <span class="map-loc-name-badge" id="map-loc-name-badge">📍 現在地</span>
-        </div>
-        <div class="header-right-actions">
-          <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" class="map-open-link" id="map-open-link-current">Googleマップで開く ↗</a>
-        </div>
-      </div>
-      <div class="map-body">
-        <iframe 
-          id="map-iframe-current" 
-          src="about:blank" 
-          class="embedded-iframe" 
-          frameborder="0" 
-          allowfullscreen>
-        </iframe>
-        <!-- リアルタイム共有リンク用カード (Googleによるiframeブロック時の安全表示) -->
-        <div class="map-live-card hidden" id="map-live-card-current">
-          <div class="map-live-info">
-            <div class="map-live-status">
-              <span class="live-pulse-dot"></span>
-              <span>現在地マップ 連携中</span>
-            </div>
-            <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" class="btn-map-launch" id="btn-map-launch-current">
-              🗺️ 現在地をGoogleマップで確認 ↗
-            </a>
-            <div class="map-live-note">
-              タップするとGoogleマップアプリまたはブラウザで現在位置を確認できます
-            </div>
-          </div>
-        </div>
-        <div class="placeholder-overlay" id="map-placeholder-current">
-          <div class="placeholder-content">
-            <span class="placeholder-icon">📍</span>
-            <p id="map-placeholder-text">現在地マップを取得中...</p>
-            <small>※位置情報が許可されているかご確認ください</small>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- タイル4: YouTube (おすすめ動画 & ウェザーニュース最新Live) -->
+    <!-- タイル3: YouTube (おすすめ動画 & ウェザーニュース最新Live) -->
     <section class="tile tile-youtube" id="tile-youtube">
-      <div class="tile-header">
+      <div class="tile-header yt-compact-header">
         <div class="yt-header-left">
           <span class="tile-title">YouTube</span>
           <div class="yt-mode-selector">
-            <button class="yt-mode-btn active" id="btn-yt-mode-weather" title="ウェザーニュース最新Liveを再生">🔴 天気Live</button>
+            <button class="yt-mode-btn active" id="btn-yt-mode-weather" title="ウェザーニュース最新Liveを再生">🔴 Live</button>
             <button class="yt-mode-btn" id="btn-yt-mode-recommend" title="おすすめ動画をローテーション再生">✨ おすすめ</button>
           </div>
-          <span class="yt-genre-badge" id="yt-genre-badge">ウェザーニュース Live</span>
+          <span class="yt-genre-badge" id="yt-genre-badge">Live</span>
           <span class="yt-account-badge" id="yt-account-badge" style="display: none;">💎 Premium</span>
         </div>
         <div class="yt-header-controls">
-          <a href="https://www.youtube.com/@weathernews/live" target="_blank" rel="noopener noreferrer" class="yt-live-direct-btn" id="btn-yt-live-direct" title="ウェザーニュースLiveを全画面で直接開く">Live全画面 ↗</a>
+          <a href="https://www.youtube.com/@weathernews/live" target="_blank" rel="noopener noreferrer" class="yt-live-direct-btn" id="btn-yt-live-direct" title="ウェザーニュースLiveを全画面で直接開く">全画面 ↗</a>
           <a href="https://accounts.google.com/ServiceLogin?service=youtube&continue=https%3A%2F%2Fwww.youtube.com" target="_blank" rel="noopener noreferrer" class="yt-login-btn" id="btn-yt-login" title="YouTube Premiumアカウントでログイン">ログイン ↗</a>
           <div class="yt-timer-wrap" id="yt-timer-wrap" title="3分で次の動画に切り替わります">
             <span class="yt-timer-icon">⏱</span>
@@ -240,7 +197,7 @@
               <div class="yt-timer-bar" id="yt-timer-bar"></div>
             </div>
           </div>
-          <button id="btn-yt-skip" class="yt-skip-btn" title="次の動画へスキップ">次へ ⏭</button>
+          <button id="btn-yt-skip" class="yt-skip-btn" title="次の動画へスキップ">⏭</button>
         </div>
       </div>
       <div class="youtube-body">
@@ -251,18 +208,20 @@
       </div>
     </section>
 
-
-
-    <!-- タイル6: IT/テック & アキバ特価情報ニュース パネル -->
+    <!-- タイル4: 総合ニュース & 特価情報 パネル -->
     <section class="tile tile-news" id="tile-news">
       <div class="tile-header">
         <div class="header-left">
           <span class="news-brand-icon">📰</span>
-          <span class="tile-title">IT & アキバ特価</span>
+          <span class="tile-title">総合ニュース & 特価</span>
           <div class="news-feed-tabs">
             <button class="news-tab-btn active" id="tab-news-it" data-channel="it">💻 IT・テック</button>
             <span class="tab-separator">|</span>
-            <button class="news-tab-btn" id="tab-news-akiba" data-channel="akiba">⚡ 秋葉原・PC特価</button>
+            <button class="news-tab-btn" id="tab-news-akiba" data-channel="akiba">⚡ 秋葉原特価</button>
+            <span class="tab-separator">|</span>
+            <button class="news-tab-btn" id="tab-news-yahoo" data-channel="yahoo">🔴 Yahoo!速報</button>
+            <span class="tab-separator">|</span>
+            <button class="news-tab-btn" id="tab-news-google" data-channel="google">🌐 Google</button>
           </div>
         </div>
         <div class="header-right-actions">
@@ -290,6 +249,24 @@
           </div>
           <!-- ヘッドライン一覧リスト -->
           <ul class="news-list" id="list-news-akiba"></ul>
+        </div>
+        <!-- Yahoo!ニュース ペイン -->
+        <div class="news-channel-pane" id="pane-news-yahoo">
+          <!-- 注目記事カード (写真 + タイトル + 要約文) -->
+          <div class="news-featured-box" id="featured-news-yahoo">
+            <div class="x-loading-placeholder">Yahoo!ニュースを取得中...</div>
+          </div>
+          <!-- ヘッドライン一覧リスト -->
+          <ul class="news-list" id="list-news-yahoo"></ul>
+        </div>
+        <!-- Google Discover ペイン -->
+        <div class="news-channel-pane" id="pane-news-google">
+          <!-- 注目記事カード (写真 + タイトル + 要約文) -->
+          <div class="news-featured-box" id="featured-news-google">
+            <div class="x-loading-placeholder">Googleニュースを取得中...</div>
+          </div>
+          <!-- ヘッドライン一覧リスト -->
+          <ul class="news-list" id="list-news-google"></ul>
         </div>
       </div>
     </section>
@@ -334,14 +311,6 @@
             <small>※この設定をOFFにすると、YouTube PremiumのCM非表示も同時に有効になります。</small>
           </div>
         </div>
-
-        <div class="form-group">
-          <label for="cfg-map-current-url">Googleマップ (現在位置) URL または住所</label>
-          <input type="text" id="cfg-map-current-url" placeholder="空欄時はGPSから自動表示 (例: 品川区大崎、またはGoogleマップURL)">
-          <small>※空欄の場合は端末のGPSから自動的に現在地地図を表示します。</small>
-        </div>
-
-
 
 
         <div class="form-group form-checkbox-group">

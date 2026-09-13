@@ -61,15 +61,15 @@ html, body {
   padding: var(--gap-size);
   gap: var(--gap-size);
   
-  /* 3列 × 2行 のグリッド定義 (全5パネル構成)
-     上段: [時計 & スケジュール (1枚)] / [YouTube (おすすめ & 天気Live)] / [天気予報 (1枚)]
-     下段: [IT/テック＆アキバ特価ニュース (2枚分ワイド)] / [現在位置Googleマップ (1枚)]
+  /* 2列 × 2行 のグリッド定義 (全4パネル構成)
+     上段: [時計 & スケジュール (1枚)] / [YouTube 大画面 (1枚)]
+     下段: [天気予報 (1枚)]           / [総合ニュース速報 (1枚)]
   */
-  grid-template-columns: 1.05fr 1.35fr 1.05fr;
+  grid-template-columns: 1fr 1.25fr;
   grid-template-rows: 1fr 1fr;
   grid-template-areas:
-    "clock-sched  youtube  weather"
-    "news         news     map";
+    "clock-sched  youtube"
+    "weather      news";
 }
 
 /* タイル共通スタイル */
@@ -892,12 +892,25 @@ html, body {
    ========================================================= */
 .tile-youtube {
   grid-area: youtube;
+  padding: 6px 8px; /* パネル内余白を最小化して動画領域を最大化 */
+}
+
+.yt-compact-header {
+  margin-bottom: 4px;
+  padding-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow: hidden;
 }
 
 .yt-header-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .yt-mode-selector {
@@ -913,12 +926,13 @@ html, body {
   background: none;
   border: none;
   color: var(--text-secondary);
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   font-weight: 600;
-  padding: 2px 8px;
+  padding: 2px 6px;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .yt-mode-btn:hover {
@@ -938,68 +952,93 @@ html, body {
 }
 
 .yt-genre-badge {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   font-weight: 600;
   color: var(--accent-cyan);
   background: rgba(56, 189, 248, 0.12);
-  padding: 1px 8px;
+  padding: 1px 6px;
   border-radius: 999px;
   border: 1px solid rgba(56, 189, 248, 0.25);
+  white-space: nowrap;
+}
+
+.yt-account-badge {
+  font-size: 0.65rem;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  white-space: nowrap;
 }
 
 .yt-header-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .yt-live-direct-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   background: rgba(239, 68, 68, 0.15);
   border: 1px solid rgba(239, 68, 68, 0.35);
   color: #fca5a5;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 2px 6px;
+  border-radius: 5px;
   text-decoration: none;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .yt-live-direct-btn:hover {
   background: #ef4444;
   color: #fff;
   border-color: #ef4444;
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+}
+
+.yt-login-btn {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 6px;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
 }
 
 .yt-timer-wrap {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   background: rgba(255, 255, 255, 0.04);
-  padding: 3px 8px;
-  border-radius: 6px;
-  font-size: 0.72rem;
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 0.68rem;
   color: var(--text-muted);
 }
 
 .yt-timer-icon {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
 }
 
 .yt-timer-text {
   font-family: 'JetBrains Mono', monospace;
   font-weight: 600;
   color: var(--text-secondary);
-  min-width: 30px;
+  min-width: 24px;
 }
 
 .yt-timer-bar-bg {
-  width: 50px;
-  height: 4px;
+  width: 36px;
+  height: 3px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 999px;
   overflow: hidden;
@@ -1018,8 +1057,8 @@ html, body {
   color: var(--text-secondary);
   font-size: 0.72rem;
   font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 6px;
+  padding: 2px 8px;
+  border-radius: 5px;
   cursor: pointer;
   transition: all 0.2s ease;
 }

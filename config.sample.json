@@ -6,25 +6,22 @@
   "calendar": {
     "embedUrl": "https://calendar.google.com/calendar/embed?src=YOUR_CALENDAR_ID%40group.calendar.google.com&ctz=Asia%2FTokyo&mode=AGENDA"
   },
-  "_comment_map": "Googleマップの位置情報。currentLocationUrl が空欄の場合は端末のGPSから自動的に現在地の地図を表示します。手動で特定の住所（例: 品川区大崎）や座標、Googleマップ埋め込みURLを設定することも可能です。",
-  "map": {
-    "currentLocationUrl": ""
-  },
   "_comment_weather": "天気予報設定。currentLocationName を空文字にしておくと、GPSから自動的に地名（例: 品川区、横浜市中区など）を判別して表示します。手動で地名を固定したい場合は「港区」「大阪市」などと入力してください。",
   "weather": {
     "currentLocationName": "",
     "provider": "open-meteo",
     "openWeatherApiKey": ""
   },
-  "_comment_youtube": "【YouTube Premium / CM完全非表示設定】isPremiumをtrueにし、googleAccountに契約中のGoogleアカウントを設定してください。adFreeModeによりCMが排除されます。",
+  "_comment_youtube": "【YouTube Premium / CM完全非表示設定】isPremiumをtrueにし、googleAccountに契約中のGoogleアカウントを設定してください。adFreeModeによりCMが排除されます。weatherLiveVideoIdは最新Live配信IDです。",
   "youtube": {
+    "defaultMode": "weather",
     "isPremium": true,
     "googleAccount": "your_premium_account@gmail.com",
     "adFreeMode": true,
     "genre": "all_mix",
     "rotationSeconds": 180,
     "customVideoIds": [
-      "6qpvwEJ7u2k",
+      "Vi6SIfj1K1Y",
       "coYw-eVU0Ks",
       "CmQi-BxdnSA",
       "jfKfPfyJRdk",
