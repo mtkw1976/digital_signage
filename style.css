@@ -588,19 +588,25 @@ html, body {
   color: var(--text-secondary);
 }
 
-/* 時間予報 (直近3コマ 横並び) */
+/* 時間予報 (直近複数コマ 横並び) */
 .weather-hourly-strip {
   display: flex;
   gap: 3px;
   flex: 1;
   justify-content: flex-end;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.weather-hourly-strip::-webkit-scrollbar {
+  display: none;
 }
 
 .compact-hourly-slot {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 4px;
-  padding: 2px 4px;
+  padding: 2px 3px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -608,7 +614,8 @@ html, body {
   gap: 1px;
   font-size: 0.6rem;
   text-align: center;
-  min-width: 42px;
+  min-width: 38px;
+  flex-shrink: 0;
 }
 
 .compact-h-time {
@@ -721,6 +728,49 @@ html, body {
 .w-low {
   color: #60a5fa;
   font-weight: 500;
+}
+
+/* 下部: 気象庁 天気概況要約カード */
+.weather-overview-card {
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-inner);
+  padding: 4px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.weather-overview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.overview-title-tag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--accent-cyan);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.overview-time-badge {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+}
+
+.weather-overview-body {
+  font-size: 0.66rem;
+  line-height: 1.38;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 /* =========================================================
@@ -1169,6 +1219,18 @@ html, body {
 .tab-separator {
   color: var(--border-subtle);
   font-size: 0.8rem;
+}
+
+.news-page-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--accent-orange);
+  background: rgba(251, 146, 60, 0.15);
+  border: 1px solid rgba(251, 146, 60, 0.3);
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
 }
 
 .feed-timer-bar-wrap {

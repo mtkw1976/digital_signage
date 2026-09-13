@@ -340,12 +340,81 @@ async function fetchAllWeather() {
 
   await Promise.allSettled([
     fetchWeatherForLocation("current"),
-    fetchWeatherForLocation("osaki")
+    fetchWeatherForLocation("osaki"),
+    fetchWeatherOverview()
   ]);
 
   const now = new Date();
   const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`;
   if (mainBadge) mainBadge.textContent = `2拠点同時監視中 (${timeStr}更新)`;
+}
+
+// 気象庁公式の天気概況テキストを取得・要約して掲載
+async function fetchWeatherOverview() {
+  const timeEl = document.getElementById("weather-overview-time");
+  const textEl = document.getElementById("weather-overview-text");
+  if (!textEl) return;
+
+  try {
+    // 気象庁の東京地方・関東天気概況オープンデータ (CORS対応・APIキー不要)
+    const res = await fetch(`https://www.jma.go.jp/bosai/forecast/data/overview_forecast/130000.json?t=${Date.now()}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.reportDatetime) {
+        const d = new Date(data.reportDatetime);
+        if (timeEl && !isNaN(d.getTime())) {
+          timeEl.textContent = `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")} 気象庁発表`;
+        }
+      }
+      const rawText = data.text || "";
+      const summarized = summarizeJmaOverview(rawText);
+      if (summarized) {
+        textEl.textContent = summarized;
+        return;
+      }
+    }
+  } catch (err) {
+    console.warn("気象庁天気概況API取得失敗、フォールバック概況を適用:", err);
+  }
+
+  // フォールバック: Open-Meteoの現在情報から概況文を自動合成
+  const currentTemp = document.getElementById("weather-temp-osaki")?.textContent || "22°C";
+  const currentDesc = document.getElementById("weather-desc-osaki")?.textContent || "晴れ";
+  const currentPop = document.getElementById("weather-pop-osaki")?.textContent || "10%";
+  textEl.textContent = `【概況】東京都心・大崎周辺は${currentDesc}、気温${currentTemp}、降水確率${currentPop}です。一日を通して安定した気候が続く見込みです。`;
+  if (timeEl) timeEl.textContent = `${new Date().getHours()}:00 更新`;
+}
+
+// 気象庁天気概況テキストの要約・抽出ロジック
+function summarizeJmaOverview(rawText) {
+  if (!rawText) return "";
+  // 全角スペースや余計な改行を除去
+  const cleaned = rawText.replace(/　/g, " ").trim();
+  const paragraphs = cleaned.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+
+  // 「東京地方は」「１３日は」「伊豆諸島」などの段落から、主要な天候要約を抽出
+  let targetParagraph = "";
+  for (const p of paragraphs) {
+    if (p.includes("東京地方は") || p.includes("【東京地方】")) {
+      targetParagraph = p;
+      break;
+    }
+  }
+
+  if (!targetParagraph && paragraphs.length > 0) {
+    targetParagraph = paragraphs[0];
+  }
+
+  // 1〜2文に絞り込み、読みやすい長さに要約
+  let sentences = targetParagraph.replace(/\r?\n/g, "").split("。").filter(s => s.trim().length > 0);
+  if (sentences.length > 2) {
+    sentences = sentences.slice(0, 2);
+  }
+  let result = sentences.join("。") + "。";
+  if (result.length > 120) {
+    result = result.substring(0, 117) + "...";
+  }
+  return result;
 }
 
 // 指定拠点（current または osaki）の天気予報取得・描画
@@ -385,10 +454,18 @@ async function fetchWeatherForLocation(locKey) {
     const pop = (data.hourly && data.hourly.precipitation_probability) ? (data.hourly.precipitation_probability[currentHour] || 0) : 0;
     if (popEl) popEl.textContent = `${pop}%`;
 
-    // 2. 時間天気 (直近3コマ: +2h, +4h, +6h)
+    // 2. 時間天気 (直近7コマ: +1h, +2h, +3h, +5h, +7h, +9h, +12h)
     if (hourlyEl && data.hourly) {
       hourlyEl.innerHTML = "";
-      const stepHours = [currentHour + 2, currentHour + 4, currentHour + 6];
+      const stepHours = [
+        currentHour + 1,
+        currentHour + 2,
+        currentHour + 3,
+        currentHour + 5,
+        currentHour + 7,
+        currentHour + 9,
+        currentHour + 12
+      ];
       
       stepHours.forEach(h => {
         if (h < data.hourly.time.length) {
@@ -826,16 +903,12 @@ async function fetchWeatherNewsLiveVideoId() {
     // フォールバック
   }
 
-  return CONFIG.youtube.weatherLiveVideoId || "Vi6SIfj1K1Y";
+  return CONFIG.youtube.weatherLiveVideoId || "iyw5Owv5PWk";
 }
 
-// ウェザーニュース公式最新Liveストリームの再生 (公式live_stream埋め込み + リアルタイムAPIのハイブリッド)
+// ウェザーニュース公式最新Liveストリームの再生
 function loadWeatherLiveStream() {
-  const channelId = CONFIG.youtube.weatherChannelId || "UCNsidkYpIAQ4QaufptQBPHQ";
-  const liveEmbedUrl = CONFIG.youtube.weatherLiveEmbedUrl || `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1&mute=1&playsinline=1`;
-
-  // 1. 最新のLive動画IDで再生
-  const currentLiveId = CONFIG.youtube.weatherLiveVideoId || "Vi6SIfj1K1Y";
+  const currentLiveId = CONFIG.youtube.weatherLiveVideoId || "iyw5Owv5PWk";
   console.log(`YouTube: ウェザーニュース最新Live [${currentLiveId}] を再生します`);
 
   if (ytPlayer && ytPlayer.loadVideoById) {
@@ -847,15 +920,11 @@ function loadWeatherLiveStream() {
       ytPlayer.mute();
       if (CONFIG.youtube.autoplay) ytPlayer.playVideo();
     } catch (err) {
-      console.warn("ウェザーニュース再生エラー、live_stream iframeへフォールバック:", err);
-      const playerIframe = document.getElementById("youtube-player");
-      if (playerIframe && playerIframe.tagName === "IFRAME") {
-        playerIframe.src = liveEmbedUrl;
-      }
+      console.warn("ウェザーニュース再生エラー:", err);
     }
   }
 
-  // 2. バックグラウンドで最新Live枠を検証・もしIDが新しければ即座に切り替え
+  // バックグラウンドで最新Live枠を検証・もしIDが新しければ即座に切り替え
   fetchWeatherNewsLiveVideoId().then((latestId) => {
     if (CONFIG.youtube.currentMode === "weather" && latestId && latestId !== currentLiveId && ytPlayer && ytPlayer.loadVideoById) {
       console.log(`YouTube: 新しいLive枠 [${latestId}] を検知したため切り替えます`);
@@ -1037,7 +1106,7 @@ window.onYouTubeIframeAPIReady = async function() {
   CONFIG.youtube.currentMode = initMode;
 
   // ウェザーニュースLiveモードの場合、起動時に即座に最新Live IDを取得
-  let liveId = CONFIG.youtube.weatherLiveVideoId || "Vi6SIfj1K1Y";
+  let liveId = CONFIG.youtube.weatherLiveVideoId || "iyw5Owv5PWk";
   try {
     liveId = await fetchWeatherNewsLiveVideoId();
   } catch (err) {
@@ -1089,15 +1158,26 @@ window.onYouTubeIframeAPIReady = async function() {
     playerVars.iv_load_policy = 3;
   }
 
-  // オリジン設定: LiveServer (localhost / 127.0.0.1) ではYouTube側がError 153を投げるためoriginを送信しない
-  const isLocalDev = window.location.hostname === "localhost" || 
+  // YouTube Error 153 (embedder.identity.missing.referrer) 対策:
+  // LiveServer(http://127.0.0.1:5500)などのローカルHTTP環境やfile環境では、ブラウザのReferer送信制限や
+  // YouTube側のクライアント認証仕様によりError 153が発生します。
+  // そのため、ローカル開発時は origin / widget_referrer を "https://www.youtube.com" に設定し、
+  // host に "https://www.youtube.com" を明示します。
+  // 本番環境(HTTPS/iPad Safari/GitHub Pages)では window.location.origin を使用します。
+  const isLocalDev = window.location.protocol === "http:" ||
+                     window.location.hostname === "localhost" || 
                      window.location.hostname === "127.0.0.1" || 
-                     window.location.hostname === "[::1]";
-  if (!isLocalDev && window.location.origin && window.location.origin !== "null" && !window.location.origin.startsWith("file:")) {
-    playerVars.origin = window.location.origin;
-  }
+                     window.location.hostname === "[::1]" ||
+                     window.location.protocol === "file:";
+  const effectiveOrigin = (isLocalDev || !window.location.origin || window.location.origin.startsWith("file:"))
+    ? "https://www.youtube.com"
+    : window.location.origin;
+
+  playerVars.origin = effectiveOrigin;
+  playerVars.widget_referrer = effectiveOrigin;
 
   ytPlayer = new YT.Player("youtube-player", {
+    host: "https://www.youtube.com",
     videoId: initialVideoId,
     playerVars: playerVars,
     events: {
@@ -1131,14 +1211,18 @@ window.onYouTubeIframeAPIReady = async function() {
         ytConsecutiveErrors++;
         console.warn(`YouTube Player エラー (code ${e.data || e}), 連続エラー: ${ytConsecutiveErrors}`);
 
-        // ウェザーニュースLive再生中のエラー時は公式live_stream埋め込みURLへ即時フォールバック
+        // ウェザーニュースLive再生中のエラー時は最新枠の再取得、ダメならおすすめ動画へ
         if (CONFIG.youtube.currentMode === "weather") {
-          console.warn("ウェザーニュースLive動画ID再生エラー、公式live_stream埋め込みへフォールバックします");
-          const iframe = document.getElementById("youtube-player");
-          if (iframe && iframe.tagName === "IFRAME") {
-            const chId = CONFIG.youtube.weatherChannelId || "UCNsidkYpIAQ4QaufptQBPHQ";
-            iframe.src = `https://www.youtube.com/embed/live_stream?channel=${chId}&autoplay=1&mute=1&playsinline=1&enablejsapi=1`;
-          }
+          console.warn("ウェザーニュースLive再生エラー、最新Live枠の再取得を試みます");
+          fetchWeatherNewsLiveVideoId().then((latestId) => {
+            if (latestId && ytPlayer && ytPlayer.loadVideoById) {
+              ytPlayer.loadVideoById({ videoId: latestId, startSeconds: 0 });
+              ytPlayer.mute();
+              if (CONFIG.youtube.autoplay) ytPlayer.playVideo();
+            } else {
+              switchYoutubeMode("recommend");
+            }
+          });
           return;
         }
 
@@ -1178,9 +1262,16 @@ window.onYouTubeIframeAPIReady = async function() {
    ========================================================= */
 let currentNewsChannel = "it"; // 'it', 'akiba', 'yahoo', 'google'
 const xFeedsData = { it: [], akiba: [], yahoo: [], google: [] };
+const newsPagination = {
+  it: { pageIndex: 0 },
+  akiba: { pageIndex: 0 },
+  yahoo: { pageIndex: 0 },
+  google: { pageIndex: 0 }
+};
 const newsFeaturedIndices = { it: 0, akiba: 0, yahoo: 0, google: 0 };
 let newsFeaturedRotateTimer = null;
 let newsRotationTimer = null;
+const NEWS_ITEMS_PER_PAGE = 5; // 注目1件 + リスト4件 = 1ページ計5件
 
 // rss2json APIを利用してCORS制限なく高速・確実にJSON取得する関数 (図・画像抽出対応)
 async function fetchRssFeed(rssUrl, fallbackType = "tech") {
@@ -1204,7 +1295,7 @@ async function fetchRssFeed(rssUrl, fallbackType = "tech") {
     defaultAuthors = [{ name: "ギズモード・ジャパン", handle: "@gizmodojapan", icon: "🌐" }, { name: "ITmedia NEWS", handle: "@itmedia_news", icon: "💻" }];
   }
 
-  return data.items.slice(0, 6).map((item, idx) => {
+  return data.items.slice(0, 20).map((item, idx) => {
     let rawTitle = item.title || "タイトルなし";
     let source = "";
 
@@ -1326,14 +1417,36 @@ function renderNewsPanel(channel) {
     return;
   }
 
-  const activeIdx = newsFeaturedIndices[channel] || 0;
+  // ページネーション (1ページあたり5件: 注目1件 + リスト4件)
+  const totalPages = Math.max(1, Math.ceil(items.length / NEWS_ITEMS_PER_PAGE));
+  let pageIdx = newsPagination[channel]?.pageIndex || 0;
+  if (pageIdx >= totalPages) pageIdx = 0;
+  newsPagination[channel].pageIndex = pageIdx;
 
-  listEl.innerHTML = items.slice(0, 4).map((item, idx) => {
+  // ページバッジの更新 (例: 1/4)
+  const pageBadge = document.getElementById("news-page-badge");
+  if (pageBadge) {
+    pageBadge.textContent = `${pageIdx + 1}/${totalPages}`;
+    pageBadge.title = `第${pageIdx + 1}ページ / 全${totalPages}ページ（全${items.length}件）`;
+  }
+
+  // 現在ページのスライス
+  const pageStart = pageIdx * NEWS_ITEMS_PER_PAGE;
+  const pageItems = items.slice(pageStart, pageStart + NEWS_ITEMS_PER_PAGE);
+
+  // 注目記事の選択
+  const activeLocalIdx = (newsFeaturedIndices[channel] !== undefined && newsFeaturedIndices[channel] < pageItems.length)
+    ? newsFeaturedIndices[channel]
+    : 0;
+  newsFeaturedIndices[channel] = activeLocalIdx;
+
+  // リストの描画 (pageItemsに含まれる記事を表示)
+  listEl.innerHTML = pageItems.map((item, localIdx) => {
     const url = item.link && item.link !== "#" ? escapeHtml(item.link) : "#";
-    const isAct = (idx === activeIdx);
+    const isAct = (localIdx === activeLocalIdx);
     return `
-      <li class="news-item ${isAct ? "featured-active" : ""}" id="news-item-${channel}-${idx}">
-        <a href="${url}" target="_blank" rel="noopener noreferrer" class="news-item-link" onclick="onNewsItemClick('${channel}', ${idx}, event)">
+      <li class="news-item ${isAct ? "featured-active" : ""}" id="news-item-${channel}-${localIdx}">
+        <a href="${url}" target="_blank" rel="noopener noreferrer" class="news-item-link" onclick="onNewsItemClick('${channel}', ${localIdx}, event)">
           <div class="news-item-thumb-wrap">
             <img src="${escapeHtml(item.thumbUrl)}" class="news-item-thumb" alt="サムネイル" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1518770660439-4636190af475?w=240&auto=format&fit=crop&q=80';">
           </div>
@@ -1350,16 +1463,21 @@ function renderNewsPanel(channel) {
     `;
   }).join("");
 
-  updateNewsFeaturedBox(channel, activeIdx);
+  updateNewsFeaturedBox(channel, activeLocalIdx);
 }
 
-function updateNewsFeaturedBox(channel, index) {
+function updateNewsFeaturedBox(channel, localIdx) {
   const items = xFeedsData[channel] || [];
   if (items.length === 0) return;
 
-  const validIdx = index % items.length;
+  const pageIdx = newsPagination[channel]?.pageIndex || 0;
+  const pageStart = pageIdx * NEWS_ITEMS_PER_PAGE;
+  const pageItems = items.slice(pageStart, pageStart + NEWS_ITEMS_PER_PAGE);
+  if (pageItems.length === 0) return;
+
+  const validIdx = (localIdx >= 0 && localIdx < pageItems.length) ? localIdx : 0;
   newsFeaturedIndices[channel] = validIdx;
-  const item = items[validIdx];
+  const item = pageItems[validIdx];
 
   const featuredEl = document.getElementById(`featured-news-${channel}`);
   if (!featuredEl || !item) return;
@@ -1383,7 +1501,7 @@ function updateNewsFeaturedBox(channel, index) {
   `;
 
   // リストのハイライト更新
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < pageItems.length; i++) {
     const el = document.getElementById(`news-item-${channel}-${i}`);
     if (el) {
       if (i === validIdx) el.classList.add("featured-active");
@@ -1392,12 +1510,14 @@ function updateNewsFeaturedBox(channel, index) {
   }
 }
 
-window.onNewsItemClick = function(channel, index, event) {
-  updateNewsFeaturedBox(channel, index);
+window.onNewsItemClick = function(channel, localIdx, event) {
+  updateNewsFeaturedBox(channel, localIdx);
 };
 
 function switchNewsChannel(targetChannel) {
   currentNewsChannel = targetChannel;
+  if (!newsPagination[targetChannel]) newsPagination[targetChannel] = { pageIndex: 0 };
+  newsFeaturedIndices[targetChannel] = 0;
   renderNewsPanel(targetChannel);
 }
 
@@ -1406,7 +1526,11 @@ function initNewsFeedRotation() {
   channels.forEach((ch) => {
     const tab = document.getElementById(`tab-news-${ch}`);
     if (tab) {
-      tab.addEventListener("click", () => switchNewsChannel(ch));
+      tab.addEventListener("click", () => {
+        if (!newsPagination[ch]) newsPagination[ch] = { pageIndex: 0 };
+        newsPagination[ch].pageIndex = 0;
+        switchNewsChannel(ch);
+      });
     }
   });
 
@@ -1424,18 +1548,36 @@ function initNewsFeedRotation() {
 
     if (progressMs >= totalDuration * 1000) {
       progressMs = 0;
-      const curIdx = channels.indexOf(currentNewsChannel);
-      const nextIdx = (curIdx + 1) % channels.length;
-      switchNewsChannel(channels[nextIdx]);
+      const items = xFeedsData[currentNewsChannel] || [];
+      const totalPages = Math.max(1, Math.ceil(items.length / NEWS_ITEMS_PER_PAGE));
+      const curPage = newsPagination[currentNewsChannel]?.pageIndex || 0;
+
+      if (curPage + 1 < totalPages) {
+        // 同じチャンネルの続き（次ページ）を表示！
+        newsPagination[currentNewsChannel].pageIndex = curPage + 1;
+        newsFeaturedIndices[currentNewsChannel] = 0;
+        renderNewsPanel(currentNewsChannel);
+      } else {
+        // 全ての件数を表示し終わったら、リストを更新して次のチャンネルへ！
+        newsPagination[currentNewsChannel].pageIndex = 0;
+        newsFeaturedIndices[currentNewsChannel] = 0;
+        loadFeeds(); // リストの更新
+        const curIdx = channels.indexOf(currentNewsChannel);
+        const nextIdx = (curIdx + 1) % channels.length;
+        switchNewsChannel(channels[nextIdx]);
+      }
     }
   }, tickIntervalMs);
 
-  // 注目記事巡回 (6秒ごと)
+  // 注目記事巡回 (6秒ごと、現在ページ内のアイテムを巡回)
   if (newsFeaturedRotateTimer) clearInterval(newsFeaturedRotateTimer);
   newsFeaturedRotateTimer = setInterval(() => {
-    const items = xFeedsData[currentNewsChannel];
-    if (items && items.length > 0) {
-      const nextIdx = ((newsFeaturedIndices[currentNewsChannel] || 0) + 1) % items.length;
+    const items = xFeedsData[currentNewsChannel] || [];
+    const pageIdx = newsPagination[currentNewsChannel]?.pageIndex || 0;
+    const pageStart = pageIdx * NEWS_ITEMS_PER_PAGE;
+    const pageItems = items.slice(pageStart, pageStart + NEWS_ITEMS_PER_PAGE);
+    if (pageItems.length > 0) {
+      const nextIdx = ((newsFeaturedIndices[currentNewsChannel] || 0) + 1) % pageItems.length;
       updateNewsFeaturedBox(currentNewsChannel, nextIdx);
     }
   }, 6000);
@@ -1485,6 +1627,66 @@ async function loadFeeds() {
         summary: "最新生成AIとスマートホームの直接連動により、日々の生活ルーティンが自然な会話で自動化されます。",
         reposts: 120,
         likes: 460
+      },
+      {
+        title: "超薄型有機ELディスプレイ搭載モバイルモニター、USB-C一本で駆動",
+        authorName: "PC Watch",
+        authorHandle: "@pc_watch",
+        authorIcon: "🖥️",
+        link: "https://pc.watch.impress.co.jp/",
+        time: "新着",
+        thumbUrl: "https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=240&auto=format&fit=crop&q=80",
+        summary: "高コントラストで色再現性に優れた有機ELパネルを採用した持ち運び用モニターが登場。",
+        reposts: 42,
+        likes: 180
+      },
+      {
+        title: "オープンソースLLMの進化とローカル環境実行の最新トレンドまとめ",
+        authorName: "AIトレンド",
+        authorHandle: "@ai_trends_jp",
+        authorIcon: "🤖",
+        link: "https://www.itmedia.co.jp/",
+        time: "注目",
+        thumbUrl: "https://images.unsplash.com/photo-1677442136019-21780efad99a?w=240&auto=format&fit=crop&q=80",
+        summary: "個人の高性能PCでも高速動作する小型・軽量かつ賢いオープンAIモデルが台頭中。",
+        reposts: 95,
+        likes: 380
+      },
+      {
+        title: "高速充電対応の小型GaN充電器、複数ポート同時急速充電を検証",
+        authorName: "ギズモード・ジャパン",
+        authorHandle: "@gizmodojapan",
+        authorIcon: "⚡",
+        link: "https://www.gizmodo.jp/",
+        time: "レビュー",
+        thumbUrl: "https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=240&auto=format&fit=crop&q=80",
+        summary: "窒化ガリウム（GaN）を採用し手のひらサイズで140W出力を実現した最新ACアダプタ。",
+        reposts: 67,
+        likes: 240
+      },
+      {
+        title: "次期macOS/Windowsの注目新機能とUI改善アップデートまとめ",
+        authorName: "ITmedia NEWS",
+        authorHandle: "@itmedia_news",
+        authorIcon: "💻",
+        link: "https://www.itmedia.co.jp/",
+        time: "OS",
+        thumbUrl: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=240&auto=format&fit=crop&q=80",
+        summary: "デスクトップ環境の操作効率を向上させるウィンドウ管理とシステム通知の進化点。",
+        reposts: 78,
+        likes: 290
+      },
+      {
+        title: "ノイズキャンセリング完全ワイヤレスイヤホン最新比較レビュー",
+        authorName: "ガジェット通信",
+        authorHandle: "@getnewsfeed",
+        authorIcon: "🎧",
+        link: "https://www.gizmodo.jp/",
+        time: "オーディオ",
+        thumbUrl: "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=240&auto=format&fit=crop&q=80",
+        summary: "静寂性と音質を両立したハイエンドANCイヤホン各社の性能を実地テストしました。",
+        reposts: 83,
+        likes: 320
       }
     ];
   }
@@ -1531,6 +1733,66 @@ async function loadFeeds() {
         summary: "中古スマートデバイス、液晶モニター、自作PCパーツの特価セール情報を一挙紹介。",
         reposts: 110,
         likes: 380
+      },
+      {
+        title: "DDR5メモリ 64GBキットが急激に値下がり中、自作PCアップグレード好機",
+        authorName: "自作PC特価情報",
+        authorHandle: "@diy_pc_sale",
+        authorIcon: "⚡",
+        link: "https://ascii.jp/",
+        time: "値下がり",
+        thumbUrl: "https://images.unsplash.com/photo-1562976540-1502c2145186?w=240&auto=format&fit=crop&q=80",
+        summary: "高速DDR5メモリが各ショップで在庫豊富になり、価格下落が進んでいます。",
+        reposts: 89,
+        likes: 310
+      },
+      {
+        title: "水冷CPUクーラー＆高静音ファン搭載ケースの店頭デモ展示がスタート",
+        authorName: "エルミタージュ秋葉原",
+        authorHandle: "@hermita_akiba",
+        authorIcon: "🏢",
+        link: "https://www.gdm.or.jp/",
+        time: "デモ",
+        thumbUrl: "https://images.unsplash.com/photo-1555680202-c86f0e12f086?w=240&auto=format&fit=crop&q=80",
+        summary: "静音性と冷却力を両立させた360mmラジエーター搭載簡易水冷クーラーの実機展示。",
+        reposts: 64,
+        likes: 220
+      },
+      {
+        title: "リファービッシュ品ノートPCが2万円台から、週末ジャンク市開催中",
+        authorName: "秋葉原ジャンク通り通信",
+        authorHandle: "@akiba_junk_news",
+        authorIcon: "📦",
+        link: "https://ascii.jp/",
+        time: "セール",
+        thumbUrl: "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=240&auto=format&fit=crop&q=80",
+        summary: "整備済みWindowsノートPCやiPadの中古品が台数限定で大放出。",
+        reposts: 98,
+        likes: 350
+      },
+      {
+        title: "メカニカルキーボード自作キット＆交換用キースイッチが大量入荷",
+        authorName: "ASCII.jp アキバ",
+        authorHandle: "@ascii_akiba",
+        authorIcon: "⌨️",
+        link: "https://ascii.jp/",
+        time: "新入荷",
+        thumbUrl: "https://images.unsplash.com/photo-1595225476474-87563907a212?w=240&auto=format&fit=crop&q=80",
+        summary: "打鍵感にこだわる自作キーボード愛好家向けの新軸キースイッチが販売開始。",
+        reposts: 72,
+        likes: 270
+      },
+      {
+        title: "高速外付けSSD 2TBが1万円台前半に突入、動画編集向けに人気集中",
+        authorName: "AKIBA PC Hotline!",
+        authorHandle: "@akiba_hotline",
+        authorIcon: "💾",
+        link: "https://akiba-pc.watch.impress.co.jp/",
+        time: "特価",
+        thumbUrl: "https://images.unsplash.com/photo-1531492746076-161ca9bcad58?w=240&auto=format&fit=crop&q=80",
+        summary: "USB 3.2 Gen2x2対応で2,000MB/sの転送速度を誇るポータブルSSDが特価。",
+        reposts: 115,
+        likes: 410
       }
     ];
   }
@@ -1577,6 +1839,66 @@ async function loadFeeds() {
         summary: "国内外の主要スポーツ試合結果および話題のエンターテインメントニュースをお届けします。",
         reposts: 156,
         likes: 670
+      },
+      {
+        title: "エネルギー価格と暮らしの家計支援策、自治体の最新助成情報",
+        authorName: "Yahoo!ニュース 暮らし",
+        authorHandle: "@YahooNewsTopics",
+        authorIcon: "💡",
+        link: "https://news.yahoo.co.jp/",
+        time: "暮らし",
+        thumbUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=240&auto=format&fit=crop&q=80",
+        summary: "電気・ガス料金の補助制度や家計防衛に向けた節約ポイントを専門家が解説。",
+        reposts: 130,
+        likes: 540
+      },
+      {
+        title: "国内観光地・宿泊施設の動向と秋の行楽シーズン見通し",
+        authorName: "Yahoo!ニュース 旅",
+        authorHandle: "@YahooNewsTopics",
+        authorIcon: "🚄",
+        link: "https://news.yahoo.co.jp/",
+        time: "観光",
+        thumbUrl: "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=240&auto=format&fit=crop&q=80",
+        summary: "秋の連休に向けた新幹線・航空便の予約状況と各地の人気紅葉スポット情報。",
+        reposts: 88,
+        likes: 390
+      },
+      {
+        title: "健康医療トピックス：季節の変わり目の体調管理と感染症対策",
+        authorName: "Yahoo!ヘルスケア",
+        authorHandle: "@YahooNewsTopics",
+        authorIcon: "🏥",
+        link: "https://news.yahoo.co.jp/",
+        time: "健康",
+        thumbUrl: "https://images.unsplash.com/photo-1505751172876-fa1923c5c528?w=240&auto=format&fit=crop&q=80",
+        summary: "寒暖差による疲労や自律神経の乱れを防ぐための生活習慣と予防策。",
+        reposts: 110,
+        likes: 470
+      },
+      {
+        title: "最新カルチャー＆映画・音楽アワードの受賞結果速報",
+        authorName: "Yahoo!エンタメ",
+        authorHandle: "@YahooNewsTopics",
+        authorIcon: "🎬",
+        link: "https://news.yahoo.co.jp/",
+        time: "エンタメ",
+        thumbUrl: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=240&auto=format&fit=crop&q=80",
+        summary: "今期注目の映画作品や音楽チャート上位の話題作を特集解説します。",
+        reposts: 74,
+        likes: 310
+      },
+      {
+        title: "防災意識の高まりと家庭でできる非常用備蓄品の総点検",
+        authorName: "Yahoo!防災",
+        authorHandle: "@YahooNewsTopics",
+        authorIcon: "🛡️",
+        link: "https://news.yahoo.co.jp/",
+        time: "防災",
+        thumbUrl: "https://images.unsplash.com/photo-1584467735871-8e85353a8413?w=240&auto=format&fit=crop&q=80",
+        summary: "水や保存食の賞味期限チェック、モバイルバッテリー確保など今すぐできる対策。",
+        reposts: 165,
+        likes: 720
       }
     ];
   }
@@ -1623,6 +1945,66 @@ async function loadFeeds() {
         summary: "宇宙開発、再生可能エネルギー、先端医療など、未来を切り拓く研究開発の最前線。",
         reposts: 165,
         likes: 610
+      },
+      {
+        title: "ミニマリズムと快適なワークスペース構築のヒント",
+        authorName: "Google Discover デザイン",
+        authorHandle: "@google_discover",
+        authorIcon: "🖥️",
+        link: "https://news.google.com/",
+        time: "インテリア",
+        thumbUrl: "https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?w=240&auto=format&fit=crop&q=80",
+        summary: "デスク周りの配線整理や集中力を高めるライティング技術の工夫を紹介。",
+        reposts: 92,
+        likes: 410
+      },
+      {
+        title: "注目の最新EV＆次世代モビリティ、航続距離と充電インフラの今",
+        authorName: "Google Discover モビリティ",
+        authorHandle: "@google_discover",
+        authorIcon: "🚗",
+        link: "https://news.google.com/",
+        time: "自動車",
+        thumbUrl: "https://images.unsplash.com/photo-1558441719-aa34455441cb?w=240&auto=format&fit=crop&q=80",
+        summary: "世界各国の主要自動車メーカーが投入する新型電気自動車と自動運転技術の進展。",
+        reposts: 105,
+        likes: 480
+      },
+      {
+        title: "コーヒーと生産性：科学的に最適なカフェイン摂取のタイミング",
+        authorName: "Google Discover ライフ",
+        authorHandle: "@google_discover",
+        authorIcon: "☕",
+        link: "https://news.google.com/",
+        time: "コラム",
+        thumbUrl: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=240&auto=format&fit=crop&q=80",
+        summary: "朝の覚醒ホルモン分泌とカフェイン効果を最大限に生かす休憩スケジュールの実証実験。",
+        reposts: 140,
+        likes: 630
+      },
+      {
+        title: "世界遺産と知られざる絶景：一度は訪れたい神秘の自然遺産",
+        authorName: "Google Discover トラベル",
+        authorHandle: "@google_discover",
+        authorIcon: "🌄",
+        link: "https://news.google.com/",
+        time: "旅",
+        thumbUrl: "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=240&auto=format&fit=crop&q=80",
+        summary: "息をのむような美しい景観と自然保護の取り組みを美麗フォトとともに巡ります。",
+        reposts: 118,
+        likes: 520
+      },
+      {
+        title: "プログラミング言語の最新動向と開発者トレンドレポート",
+        authorName: "Google Discover 開発",
+        authorHandle: "@google_discover",
+        authorIcon: "💻",
+        link: "https://news.google.com/",
+        time: "開発",
+        thumbUrl: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=240&auto=format&fit=crop&q=80",
+        summary: "現代の開発現場で急速に需要が高まっている言語とフレームワークの市場分析。",
+        reposts: 87,
+        likes: 370
       }
     ];
   }

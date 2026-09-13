@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Smart Signage Dashboard</title>
 
   <!-- iOS Safari ホーム画面追加 (PWA/フルスクリーン) 設定 -->
@@ -172,6 +171,15 @@
             </div>
           </div>
         </div>
+
+        <!-- 下部: 気象庁 天気概況要約カード (最新の天気概況テキストを要約掲載) -->
+        <div class="weather-overview-card" id="weather-overview-card">
+          <div class="weather-overview-header">
+            <span class="overview-title-tag">📜 気象庁 天気概況</span>
+            <span class="overview-time-badge" id="weather-overview-time">取得中...</span>
+          </div>
+          <div class="weather-overview-body" id="weather-overview-text">最新の天気概況を取得しています...</div>
+        </div>
       </div>
     </section>
 
@@ -225,6 +233,7 @@
           </div>
         </div>
         <div class="header-right-actions">
+          <span class="news-page-badge" id="news-page-badge" title="現在の表示ページ / 全ページ">1/1</span>
           <div class="feed-timer-bar-wrap">
             <div class="feed-timer-bar" id="news-timer-bar"></div>
           </div>
