@@ -1,13 +1,13 @@
 /**
  * =========================================================
  * Smart Signage Dashboard - Main Script
- * Version: v1.2.1
+ * Version: v1.3.0
  * iPad Pro (第2世代) 向け ホームサイネージ制御スクリプト
  * =========================================================
  */
 
 // システムバージョン (git pushごとに更新)
-const APP_VERSION = "v1.2.1";
+const APP_VERSION = "v1.3.0";
 
 /* =========================================================
    【設定エリア】お好みに応じて書き換えてください
@@ -868,6 +868,55 @@ let ytTimerInterval = null;
 let ytRemainingSeconds = 180; // 3分 (180秒)
 let ytConsecutiveErrors = 0; // 連続エラー回数カウンタ
 
+// 動画ごとの再生進捗位置（続きから再生用）の管理 (localStorage永続化)
+const YT_POSITIONS_STORAGE_KEY = "signage_yt_playback_positions";
+let ytVideoPlaybackPositions = {}; // { [videoId]: number (seconds) }
+
+function initYtPlaybackPositions() {
+  try {
+    const raw = localStorage.getItem(YT_POSITIONS_STORAGE_KEY);
+    if (raw) {
+      ytVideoPlaybackPositions = JSON.parse(raw) || {};
+    }
+  } catch (e) {
+    ytVideoPlaybackPositions = {};
+  }
+}
+
+function saveYtPlaybackPositions() {
+  try {
+    localStorage.setItem(YT_POSITIONS_STORAGE_KEY, JSON.stringify(ytVideoPlaybackPositions));
+  } catch (e) {
+    console.warn("YouTube再生位置の保存エラー:", e);
+  }
+}
+
+// 現在の動画の再生秒数を保存
+function recordCurrentYtPlaybackPosition() {
+  if (!ytPlayer || !ytCurrentVideoId) return;
+  // 天気Liveストリーム等は続きから再生の対象外
+  if (CONFIG.youtube.currentMode === "weather") return;
+
+  try {
+    if (typeof ytPlayer.getCurrentTime === "function") {
+      const currentTime = ytPlayer.getCurrentTime();
+      const duration = (typeof ytPlayer.getDuration === "function") ? ytPlayer.getDuration() : 0;
+      // 再生中かつ動画末尾（残り5秒以内）でなければ記録。末尾の場合は次回最初から再生するためリセット
+      if (typeof currentTime === "number" && currentTime > 3) {
+        if (duration > 0 && currentTime >= duration - 5) {
+          delete ytVideoPlaybackPositions[ytCurrentVideoId];
+        } else {
+          ytVideoPlaybackPositions[ytCurrentVideoId] = Math.floor(currentTime);
+        }
+        saveYtPlaybackPositions();
+        console.log(`YouTube: 動画 [${ytCurrentVideoId}] の再生位置を保存しました (${Math.floor(currentTime)}秒)`);
+      }
+    }
+  } catch (err) {
+    console.warn("YouTube再生位置の記録例外:", err);
+  }
+}
+
 // エラー動画除外リスト（ブラックリスト）管理
 const YT_FAILED_STORAGE_KEY = "signage_yt_failed_videos";
 let ytFailedVideoMap = {}; // { [videoId]: { timestamp: number, reason: string } }
@@ -1033,17 +1082,23 @@ function initAutoplayUnmuteListener() {
   document.addEventListener("touchstart", onFirstInteraction, { once: true });
 }
 
-// 指定した動画IDを安全に再生 (iframe属性とAPIの両面をサポート)
+// 指定した動画IDを安全に再生 (続きから再生対応、iframe属性とAPIの両面をサポート)
 function loadYoutubeVideo(videoId) {
   if (!videoId) return;
   const cleanId = videoId.trim();
   ytCurrentVideoId = cleanId;
 
+  // 保存済みの再生位置（続きから再生秒数）を取得（天気Live等の場合は0）
+  const resumeSeconds = (CONFIG.youtube.currentMode === "weather") ? 0 : (ytVideoPlaybackPositions[cleanId] || 0);
+  if (resumeSeconds > 0) {
+    console.log(`YouTube: 動画 [${cleanId}] を保存された再生位置 (${resumeSeconds}秒) から再開します`);
+  }
+
   if (ytPlayer && ytPlayer.loadVideoById) {
     try {
       ytPlayer.loadVideoById({
         videoId: cleanId,
-        startSeconds: 0
+        startSeconds: resumeSeconds
       });
       applyYoutubeVolume(ytPlayer);
       if (CONFIG.youtube.autoplay) {
@@ -1059,7 +1114,8 @@ function loadYoutubeVideo(videoId) {
   const iframe = document.getElementById("youtube-player");
   if (iframe && iframe.tagName === "IFRAME") {
     const muteParam = CONFIG.youtube.mute ? 1 : 0;
-    iframe.src = `https://www.youtube.com/embed/${cleanId}?enablejsapi=1&autoplay=1&mute=${muteParam}&playsinline=1&controls=1&rel=0`;
+    const startParam = resumeSeconds > 0 ? `&start=${resumeSeconds}` : "";
+    iframe.src = `https://www.youtube.com/embed/${cleanId}?enablejsapi=1&autoplay=1&mute=${muteParam}&playsinline=1&controls=1&rel=0${startParam}`;
   }
 }
 
@@ -1089,6 +1145,9 @@ function switchYoutubeMode(mode) {
   const timerBar = document.getElementById("yt-timer-bar");
 
   if (mode === "weather") {
+    // おすすめモードからウェザーニュースLiveに切り替える直前の再生位置を記録
+    recordCurrentYtPlaybackPosition();
+
     if (btnWeather) btnWeather.classList.add("active");
     if (btnRecommend) btnRecommend.classList.remove("active");
     if (btnLiveDirect) btnLiveDirect.style.display = "inline-flex";
@@ -1184,6 +1243,9 @@ function startYtRotationTimer() {
     // 3分経過したら次の動画へ遷移
     if (ytRemainingSeconds <= 0) {
       playNextVideo();
+    } else if (ytRemainingSeconds % 10 === 0) {
+      // 10秒ごとに定期的に再生秒数を保存（ブラウザリロードやタブ切り替え時にも最新位置を維持）
+      recordCurrentYtPlaybackPosition();
     }
   }
 
@@ -1202,6 +1264,9 @@ function playNextVideo() {
   ytCurrentPool = getYtActivePool();
   if (ytCurrentPool.length === 0) return;
 
+  // 現在再生していた動画の進捗秒数を保存（次回同じ動画に戻ってきたときに続きから再生するため）
+  recordCurrentYtPlaybackPosition();
+
   ytCurrentIndex = (ytCurrentIndex + 1) % ytCurrentPool.length;
   const nextVideoId = ytCurrentPool[ytCurrentIndex];
 
@@ -1214,6 +1279,7 @@ function playNextVideo() {
 
 // YouTube IFrame API準備完了コールバック
 window.onYouTubeIframeAPIReady = async function() {
+  initYtPlaybackPositions();
   initYtFailedVideos();
 
   const initMode = CONFIG.youtube.defaultMode || "weather";
@@ -1311,8 +1377,12 @@ window.onYouTubeIframeAPIReady = async function() {
         if (event.data === YT.PlayerState.PLAYING) {
           ytConsecutiveErrors = 0;
         }
-        // 動画自体が3分未満で終了した場合も待たずに次へ
+        // 動画自体が3分未満で終了した場合も待たずに次へ（次回は最初から再生するため位置クリア）
         if (event.data === YT.PlayerState.ENDED) {
+          if (ytCurrentVideoId) {
+            delete ytVideoPlaybackPositions[ytCurrentVideoId];
+            saveYtPlaybackPositions();
+          }
           playNextVideo();
         }
       },
@@ -2282,6 +2352,7 @@ const STORAGE_KEY = "digital_signage_user_settings";
 
 function loadSavedSettings() {
   try {
+    initYtPlaybackPositions();
     initYtFailedVideos();
     initNewsHiddenItems();
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -2339,7 +2410,9 @@ function initSettingsModal() {
   if (btnResetYtFailed) {
     btnResetYtFailed.addEventListener("click", () => {
       clearFailedYoutubeVideos();
-      alert("除外された動画リストをリセットしました。すべての動画の再試行が許可されます。");
+      ytVideoPlaybackPositions = {};
+      saveYtPlaybackPositions();
+      alert("除外された動画リストと再生進捗履歴をリセットしました。すべての動画の再試行・最初からの再生が許可されます。");
     });
   }
 
