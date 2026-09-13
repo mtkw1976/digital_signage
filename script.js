@@ -1,14 +1,19 @@
 /**
  * =========================================================
  * Smart Signage Dashboard - Main Script
+ * Version: v1.1.0
  * iPad Pro (第2世代) 向け ホームサイネージ制御スクリプト
  * =========================================================
  */
+
+// システムバージョン (git pushごとに更新)
+const APP_VERSION = "v1.1.0";
 
 /* =========================================================
    【設定エリア】お好みに応じて書き換えてください
    ========================================================= */
 const CONFIG = {
+  version: APP_VERSION,
   // 1. 天気予報設定 (現在地 & 品川区大崎駅周辺)
   weather: {
     currentLocationName: "", // 空欄時はGPS・逆ジオコーディングで自動地名判別 (例: 品川区)
@@ -76,6 +81,10 @@ function initClock() {
   const dateEl = document.getElementById("date-display");
   const timeEl = document.getElementById("time-display");
   const secondsEl = document.getElementById("seconds-display");
+  const versionEl = document.getElementById("app-version-badge");
+  if (versionEl) {
+    versionEl.textContent = APP_VERSION;
+  }
 
   const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
 
